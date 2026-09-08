@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import {
   createChart,
   CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
   LineStyle,
   CrosshairMode,
   type IChartApi,
@@ -13,6 +15,7 @@ import {
 } from "lightweight-charts";
 import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
+import { calcSma } from "@/lib/calculations";
 import { formatCurrency } from "@/lib/format";
 
 interface TradingChartProps {
@@ -33,14 +36,38 @@ interface TradingChartProps {
   seriesKey?: string;
 }
 
+function toChartTime(candle: Candle) {
+  return Math.floor(candle.time / 1000) as UTCTimestamp;
+}
+
 function toChartCandle(candle: Candle) {
   return {
-    time: Math.floor(candle.time / 1000) as UTCTimestamp,
+    time: toChartTime(candle),
     open: candle.open,
     high: candle.high,
     low: candle.low,
     close: candle.close,
   };
+}
+
+function toVolumeCandle(candle: Candle) {
+  return {
+    time: toChartTime(candle),
+    value: candle.volume,
+    color: candle.close >= candle.open ? "rgba(52,211,153,0.5)" : "rgba(244,63,94,0.5)",
+  };
+}
+
+function toSmaPoints(candles: Candle[]) {
+  const sma = calcSma(candles);
+  const points: { time: UTCTimestamp; value: number }[] = [];
+  candles.forEach((candle, index) => {
+    const value = sma[index];
+    if (value !== null) {
+      points.push({ time: toChartTime(candle), value });
+    }
+  });
+  return points;
 }
 
 export function TradingChart({
@@ -55,6 +82,8 @@ export function TradingChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const smaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const prevCandleCountRef = useRef(0);
   const prevFirstTimeRef = useRef<number | null>(null);
   const prevSeriesKeyRef = useRef<string | undefined>(undefined);
@@ -70,6 +99,11 @@ export function TradingChart({
         textColor: "rgba(255,255,255,0.45)",
         fontFamily: "var(--font-geist-mono, monospace)",
         fontSize: 11,
+        panes: {
+          enableResize: true,
+          separatorColor: "rgba(255,255,255,0.08)",
+          separatorHoverColor: "rgba(167,139,250,0.25)",
+        },
       },
       grid: {
         vertLines: { color: "rgba(255,255,255,0.04)" },
@@ -100,8 +134,30 @@ export function TradingChart({
       priceLineStyle: LineStyle.Dashed,
     });
 
+    const smaSeries = chart.addSeries(LineSeries, {
+      color: "#facc15",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+
+    const volumeSeries = chart.addSeries(
+      HistogramSeries,
+      {
+        priceFormat: { type: "volume" },
+        color: "#34d399",
+        priceLineVisible: false,
+        lastValueVisible: false,
+      },
+      1
+    );
+    chart.panes()[1]?.setStretchFactor(0.25);
+
     chartRef.current = chart;
     seriesRef.current = series;
+    volumeSeriesRef.current = volumeSeries;
+    smaSeriesRef.current = smaSeries;
     prevCandleCountRef.current = 0;
     prevFirstTimeRef.current = null;
     prevSeriesKeyRef.current = undefined;
@@ -111,13 +167,17 @@ export function TradingChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      volumeSeriesRef.current = null;
+      smaSeriesRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chart is created once per mount; `interactive` is not expected to change at runtime
   }, []);
 
   useEffect(() => {
     const series = seriesRef.current;
-    if (!series || candles.length === 0) return;
+    const volumeSeries = volumeSeriesRef.current;
+    const smaSeries = smaSeriesRef.current;
+    if (!series || !volumeSeries || !smaSeries || candles.length === 0) return;
 
     const first = candles[0];
     // A genuinely new/rolled candle (or a same-candle price tick) always
@@ -134,9 +194,18 @@ export function TradingChart({
 
     if (isWholesaleReplacement) {
       series.setData(candles.map(toChartCandle));
+      volumeSeries.setData(candles.map(toVolumeCandle));
+      smaSeries.setData(toSmaPoints(candles));
       chartRef.current?.timeScale().fitContent();
     } else {
-      series.update(toChartCandle(candles[candles.length - 1]));
+      const lastCandle = candles[candles.length - 1];
+      series.update(toChartCandle(lastCandle));
+      volumeSeries.update(toVolumeCandle(lastCandle));
+      const sma = calcSma(candles);
+      const lastSma = sma[sma.length - 1];
+      if (lastSma !== null) {
+        smaSeries.update({ time: toChartTime(lastCandle), value: lastSma });
+      }
     }
 
     prevCandleCountRef.current = candles.length;

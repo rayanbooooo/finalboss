@@ -8,6 +8,7 @@ import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
+import { AccountBadge } from "@/components/wallet/AccountBadge";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
@@ -18,7 +19,7 @@ interface MobileNavProps {
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { isOnboarded } = useOnboarding();
+  const { isOnboarded, profile } = useOnboarding();
 
   if (!isOpen) return null;
 
@@ -63,6 +64,8 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         <div className="mt-auto flex flex-col gap-3">
           {isConnected ? (
             <ConnectedBadge />
+          ) : profile ? (
+            <AccountBadge />
           ) : (
             <Button variant="outline" size="lg" onClick={openWalletModal} className="w-full">
               Connect Wallet
@@ -73,7 +76,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             onClick={onClose}
             className={cn(buttonVariants("primary", "lg"), "w-full")}
           >
-            Start Trading
+            {isOnboarded ? "Launch App" : "Start Trading"}
           </Link>
         </div>
       </div>

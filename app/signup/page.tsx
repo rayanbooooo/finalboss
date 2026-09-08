@@ -1,4 +1,4 @@
-import { SignupForm } from "@/components/signup/SignupForm";
+import { OnboardingWizard } from "@/components/signup/OnboardingWizard";
 
 export default function SignupPage() {
   return (
@@ -11,7 +11,7 @@ export default function SignupPage() {
           Start trading in seconds. No paperwork, no delays.
         </p>
       </div>
-      <SignupForm />
+      <OnboardingWizard />
     </div>
   );
 }

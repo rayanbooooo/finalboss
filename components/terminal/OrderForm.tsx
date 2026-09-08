@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button } from "@/components/ui/Button";
 import { calcLiquidationPrice, calcPositionSize } from "@/lib/calculations";
@@ -14,8 +15,9 @@ const QUICK_MARGIN_AMOUNTS = [100, 500, 1000, 5000];
 
 export function OrderForm() {
   const { market, activeMarketId, openPosition } = useTerminal();
+  const { profile } = useOnboarding();
   const [side, setSide] = useState<OrderSide>("long");
-  const [leverage, setLeverage] = useState(10);
+  const [leverage, setLeverage] = useState(profile?.defaultLeverage ?? 10);
   const [margin, setMargin] = useState(1000);
   const [justExecuted, setJustExecuted] = useState(false);
 

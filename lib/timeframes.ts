@@ -38,6 +38,7 @@ export function aggregateCandles(candles: Candle[], bucketMs: number): Candle[] 
       existing.high = Math.max(existing.high, candle.high);
       existing.low = Math.min(existing.low, candle.low);
       existing.close = candle.close;
+      existing.volume += candle.volume;
     }
   }
 

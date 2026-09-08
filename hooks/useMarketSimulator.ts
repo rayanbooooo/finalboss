@@ -81,6 +81,11 @@ export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
       const trade = generateTrade(priceRef.current);
       setTrades((prev) => [trade, ...prev].slice(0, MAX_TRADES));
       setVolume24h((prev) => prev + trade.price * trade.size);
+      setCandles((prev) => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        return [...prev.slice(0, -1), { ...last, volume: last.volume + trade.size }];
+      });
     }, TRADE_TICK_MS);
     return () => clearInterval(interval);
   }, []);

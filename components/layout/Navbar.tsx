@@ -9,6 +9,7 @@ import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
+import { AccountBadge } from "@/components/wallet/AccountBadge";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { LiveTicker } from "@/components/layout/LiveTicker";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { isOnboarded } = useOnboarding();
+  const { isOnboarded, profile } = useOnboarding();
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-base-950/80 backdrop-blur-xl">
@@ -46,6 +47,8 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           {isConnected ? (
             <ConnectedBadge />
+          ) : profile ? (
+            <AccountBadge />
           ) : (
             <Button variant="outline" size="md" onClick={openWalletModal}>
               Connect Wallet
@@ -55,7 +58,7 @@ export function Navbar() {
             href={isOnboarded ? "/terminal" : "/signup"}
             className={cn(buttonVariants("primary", "md"))}
           >
-            Start Trading
+            {isOnboarded ? "Launch App" : "Start Trading"}
           </Link>
         </div>
 

@@ -39,6 +39,7 @@ export function createFlatCandles(count: number, price: number): Candle[] {
       high: price,
       low: price,
       close: price,
+      volume: price * 0.01,
     });
   }
   return candles;
@@ -69,11 +70,13 @@ export function generateInitialCandles(count: number, seedPrice: number): Candle
     let high = open;
     let low = open;
     let close = open;
+    let volume = 0;
 
     for (let s = 0; s < 6; s += 1) {
       close = nextTick(close, seedPrice);
       high = Math.max(high, close);
       low = Math.min(low, close);
+      volume += randomBetween(0.2, 2) * (5000 / seedPrice);
     }
 
     candles.push({
@@ -82,6 +85,7 @@ export function generateInitialCandles(count: number, seedPrice: number): Candle
       high,
       low,
       close,
+      volume,
     });
     price = close;
   }
@@ -99,14 +103,17 @@ export function nextCandle(
   intervalMs: number
 ): Candle[] {
   if (candles.length === 0) {
-    return [{ time: Date.now(), open: price, high: price, low: price, close: price }];
+    return [{ time: Date.now(), open: price, high: price, low: price, close: price, volume: 0 }];
   }
 
   const last = candles[candles.length - 1];
   const elapsed = Date.now() - last.time;
 
   if (elapsed >= intervalMs) {
-    const rolled = [...candles, { time: Date.now(), open: last.close, high: price, low: price, close: price }];
+    const rolled = [
+      ...candles,
+      { time: Date.now(), open: last.close, high: price, low: price, close: price, volume: 0 },
+    ];
     return rolled.length > 500 ? rolled.slice(rolled.length - 500) : rolled;
   }
 

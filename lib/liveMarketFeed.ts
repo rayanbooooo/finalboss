@@ -25,12 +25,13 @@ export async function fetchHistoricalCandles(
   return raw
     .slice(0, count)
     .reverse()
-    .map(([time, low, high, open, close]) => ({
+    .map(([time, low, high, open, close, volume]) => ({
       time: time * 1000,
       open,
       high,
       low,
       close,
+      volume: Number.isFinite(volume) ? volume : 0,
     }));
 }
 

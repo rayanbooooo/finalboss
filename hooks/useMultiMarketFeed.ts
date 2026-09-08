@@ -46,6 +46,17 @@ function markAllOffline(state: Record<MarketId, LiveState>): Record<MarketId, Li
 }
 
 /**
+ * `ticker` messages drive OHLC/roll (see LIVE_CANDLE_INTERVAL_MS below) but
+ * carry no per-trade size - only `match` messages do - so real trade volume
+ * is accumulated onto the currently-forming candle here, independently.
+ */
+function addVolumeToLastCandle(candles: Candle[], size: number): Candle[] {
+  if (candles.length === 0) return candles;
+  const last = candles[candles.length - 1];
+  return [...candles.slice(0, -1), { ...last, volume: last.volume + size }];
+}
+
+/**
  * One shared Coinbase feed for every market in lib/markets.ts. Each market
  * also keeps its own client-side simulator (useMarketSimulator) running the
  * whole time as a hot fallback - cheap, and it means a feed drop degrades
@@ -126,7 +137,11 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
           receivedFor.add(productId);
           setLive((prev) => ({
             ...prev,
-            [id]: { ...prev[id], trades: [trade, ...prev[id].trades].slice(0, MAX_LIVE_TRADES) },
+            [id]: {
+              ...prev[id],
+              trades: [trade, ...prev[id].trades].slice(0, MAX_LIVE_TRADES),
+              candles: addVolumeToLastCandle(prev[id].candles, trade.size),
+            },
           }));
         },
         onBookSnapshot: (productId, book) => {

@@ -1,4 +1,19 @@
 import type { OrderSide } from "@/types/trading";
+import type { Candle } from "@/types/market";
+
+const SMA_PERIOD = 20;
+
+/** Rolling simple moving average of closes; `null` while the window hasn't filled yet. */
+export function calcSma(candles: Candle[], period = SMA_PERIOD): (number | null)[] {
+  const result: (number | null)[] = [];
+  let sum = 0;
+  for (let i = 0; i < candles.length; i += 1) {
+    sum += candles[i].close;
+    if (i >= period) sum -= candles[i - period].close;
+    result.push(i >= period - 1 ? sum / period : null);
+  }
+  return result;
+}
 
 /**
  * All formulas below are simplified, demo-only approximations of a real
