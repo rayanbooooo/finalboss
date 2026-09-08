@@ -12,7 +12,6 @@ import { TradeHistoryTape } from "@/components/terminal/TradeHistoryTape";
 import { MarketPanelTabs } from "@/components/terminal/MarketPanelTabs";
 import { OrderForm } from "@/components/terminal/OrderForm";
 import { PositionsPanel } from "@/components/terminal/PositionsPanel";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { aggregateCandles, DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
@@ -39,16 +38,27 @@ export function TerminalLayout() {
   }, [chartExpanded]);
 
   return (
-    <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-6">
-      <GlassCard className="overflow-hidden">
-        <MarketHeader />
+    <div className="flex h-full min-h-0 flex-col">
+      <MarketHeader />
 
-        <div className="flex flex-col lg:grid lg:grid-cols-[240px_minmax(0,1fr)_320px]">
-          <div className="hidden border-r border-white/5 lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:block">
-            <OrderBook />
+      <div className="flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[240px_minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)_minmax(180px,260px)]">
+          {/* Book on top, tape underneath - fills the full column height
+              instead of leaving the dead space the book alone left behind. */}
+          <div className="hidden border-r border-white/5 lg:col-start-1 lg:row-start-1 lg:row-span-2 lg:flex lg:min-h-0 lg:flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <OrderBook />
+            </div>
+            <div className="flex h-[240px] shrink-0 flex-col border-t border-white/5">
+              <div className="shrink-0 px-3 pt-3 text-xs font-medium text-white/40">
+                Recent Trades
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <TradeHistoryTape />
+              </div>
+            </div>
           </div>
 
-          <div className="order-1 border-b border-white/5 p-3 sm:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:border-b-0">
+          <div className="order-1 flex min-h-0 flex-col border-b border-white/5 p-3 sm:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:border-b-0">
             {!chartExpanded && (
               <ChartPanel
                 timeframe={timeframe}
@@ -65,11 +75,10 @@ export function TerminalLayout() {
 
           {chartExpanded &&
             createPortal(
-              // GlassCard's backdrop-blur establishes a containing block for
-              // `position: fixed` descendants, so a fixed overlay nested
-              // inside it only fills the card's own box, not the real
-              // viewport - portal past it to document.body so this actually
-              // covers everything, navbar included.
+              // Portalled to document.body: any backdrop-filter ancestor
+              // becomes the containing block for `position: fixed`
+              // descendants, which would trap this overlay inside the panel
+              // instead of covering the viewport.
               <div className="fixed inset-0 z-50 overflow-y-auto bg-base-950 p-4">
                 <ChartPanel
                   timeframe={timeframe}
@@ -89,20 +98,16 @@ export function TerminalLayout() {
             <MarketPanelTabs />
           </div>
 
-          <div className="order-3 border-b border-white/5 lg:order-none lg:col-start-3 lg:row-start-1 lg:border-b-0 lg:border-l lg:border-white/5">
+          {/* Spans both rows so the submit button is reachable without
+              scrolling the panel. */}
+          <div className="order-3 border-b border-white/5 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-l lg:border-white/5">
             <OrderForm />
           </div>
 
-          <div className="order-4 lg:order-none lg:col-start-2 lg:row-start-2 lg:border-t lg:border-white/5">
+          <div className="order-4 lg:order-none lg:col-start-2 lg:row-start-2 lg:overflow-y-auto lg:border-t lg:border-white/5">
             <PositionsPanel />
           </div>
-
-          <div className="hidden lg:col-start-3 lg:row-start-2 lg:block lg:border-l lg:border-t lg:border-white/5">
-            <div className="px-4 pt-3 text-xs font-medium text-white/40">Recent Trades</div>
-            <TradeHistoryTape />
-          </div>
-        </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }
@@ -146,7 +151,9 @@ function ChartPanel({
         currentPrice={currentPrice}
         positions={positions}
         seriesKey={seriesKey}
-        heightClassName={expanded ? "h-[calc(100vh-6rem)]" : "h-[420px] sm:h-[560px]"}
+        heightClassName={
+          expanded ? "h-[calc(100vh-6rem)]" : "h-[420px] sm:h-[560px] lg:h-full"
+        }
       />
     </>
   );

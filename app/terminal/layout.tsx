@@ -7,9 +7,12 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
   return (
     <TerminalGate>
       <TerminalProvider>
-        <div className="flex">
+        {/* Fixed to the viewport on desktop so panels scroll inside the shell
+            rather than the page scrolling as a whole; stacks and scrolls
+            normally on small screens. */}
+        <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
           <TerminalSidebar />
-          <div className="min-w-0 flex-1">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
         </div>
       </TerminalProvider>
     </TerminalGate>

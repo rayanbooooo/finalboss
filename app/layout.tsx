@@ -8,8 +8,6 @@ import { Web3Provider } from "@/components/providers/Web3Provider";
 import { WalletModalProvider } from "@/contexts/WalletModalContext";
 import { MarketFeedProvider } from "@/contexts/MarketFeedContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { WalletModal } from "@/components/wallet/WalletModal";
 
 const bricolage = Bricolage_Grotesque({
@@ -42,11 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <OnboardingProvider>
             <MarketFeedProvider>
               <WalletModalProvider>
-                <div className="flex min-h-screen flex-col">
-                  <Navbar />
-                  <main className="flex-1">{children}</main>
-                  <Footer />
-                </div>
+                {children}
                 <WalletModal />
               </WalletModalProvider>
             </MarketFeedProvider>

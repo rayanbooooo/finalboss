@@ -1,17 +1,34 @@
 "use client";
 
+import Link from "next/link";
+import { useAccount } from "wagmi";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useWalletModal } from "@/contexts/WalletModalContext";
 import { formatCompactNumber, formatPercent, formatPrice } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
+import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
+import { AccountBadge } from "@/components/wallet/AccountBadge";
 import { MarketSelector } from "@/components/terminal/MarketSelector";
 import { cn } from "@/lib/utils";
 
 export function MarketHeader() {
   const { market } = useTerminal();
+  const { isConnected } = useAccount();
+  const { profile } = useOnboarding();
+  const { open: openWalletModal } = useWalletModal();
   const positive = market.change24hPct >= 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-white/5 px-4 py-4 sm:px-6">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-8 gap-y-3 border-b border-white/5 px-4 py-4 sm:px-6">
+      {/* The sidebar carries the mark on desktop; on mobile this is the only
+          way back out of the terminal. */}
+      <Link href="/" aria-label="FinalBoss home" className="lg:hidden">
+        <Logo className="h-9 w-9" />
+      </Link>
+
       <MarketSelector />
 
       <div className="flex items-center gap-2">
@@ -45,6 +62,18 @@ export function MarketHeader() {
         <Stat label="24h High" value={formatPrice(market.high24h)} />
         <Stat label="24h Low" value={formatPrice(market.low24h)} />
         <Stat label="24h Volume" value={`$${formatCompactNumber(market.volume24h)}`} />
+      </div>
+
+      <div className="ml-auto flex items-center gap-3">
+        {isConnected ? (
+          <ConnectedBadge />
+        ) : profile ? (
+          <AccountBadge />
+        ) : (
+          <Button variant="outline" size="md" onClick={openWalletModal}>
+            Connect Wallet
+          </Button>
+        )}
       </div>
     </div>
   );

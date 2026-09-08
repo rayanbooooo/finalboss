@@ -250,7 +250,7 @@ export function TradingChart({
   }, [positions]);
 
   return (
-    <div className="relative">
+    <div className="relative min-h-0 flex-1">
       <div ref={containerRef} className={heightClassName} />
       {showPriceBadge && (
         <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-violet-500/20 px-2 py-1 font-mono text-xs text-violet-200">
