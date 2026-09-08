@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/components/providers/Web3Provider";
 import { WalletModalProvider } from "@/contexts/WalletModalContext";
@@ -9,6 +10,13 @@ import { MarketFeedProvider } from "@/contexts/MarketFeedContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { WalletModal } from "@/components/wallet/WalletModal";
+
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "FinalBoss — High-Leverage Perpetuals Trading",
@@ -24,7 +32,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable} ${bricolage.variable}`}
+    >
       <body className="min-h-screen bg-base-950 font-sans text-white">
         <Web3Provider>
           <MarketFeedProvider>

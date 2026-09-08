@@ -37,6 +37,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-bricolage)", "var(--font-geist-sans)", "system-ui", "sans-serif"],
       },
       boxShadow: {
         "glow-violet": "0 0 24px 0 rgba(139, 92, 246, 0.35)",
@@ -75,6 +76,18 @@ const config: Config = {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
         },
+        "drift-1": {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(50px, 40px)" },
+        },
+        "drift-2": {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(-60px, 35px)" },
+        },
+        "drift-3": {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(-40px, -50px)" },
+        },
       },
       animation: {
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
@@ -83,6 +96,9 @@ const config: Config = {
         "slide-in-right": "slide-in-right 0.25s ease-out",
         "fade-in": "fade-in 0.4s ease-out",
         "spin-slow": "spin-slow 6s linear infinite",
+        "drift-1": "drift-1 22s ease-in-out infinite",
+        "drift-2": "drift-2 26s ease-in-out infinite",
+        "drift-3": "drift-3 30s ease-in-out infinite",
       },
     },
   },
