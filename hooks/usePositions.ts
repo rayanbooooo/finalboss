@@ -42,6 +42,10 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
   // id -> the status we last wrote to the database, so the sync effect can
   // tell an unsaved position from one that just changed status.
   const syncedRef = useRef(new Map<string, Position["status"]>());
+  // id -> the write currently in flight for that position. Updates chain onto
+  // it so a close can't overtake the insert that creates its row.
+  // PromiseLike, not Promise: Supabase's query builder is a thenable.
+  const pendingRef = useRef(new Map<string, PromiseLike<unknown>>());
 
   // Memoized so it's a stable effect dependency - rebuilding it every render
   // would re-fire the sync effect continuously.
@@ -123,27 +127,35 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
       syncedRef.current.set(position.id, position.status);
 
       if (!synced) {
-        void remote.supabase
+        const insert = remote.supabase
           .from("positions")
           .insert(positionToRow(position, remote.userId))
           .then(({ error }) => {
             if (error) console.error("Could not save position:", error.message);
           });
+        pendingRef.current.set(position.id, insert);
         return;
       }
 
-      void remote.supabase
-        .from("positions")
-        .update({
-          status: position.status,
-          closed_at: position.closedAt ? new Date(position.closedAt).toISOString() : null,
-          close_price: position.closePrice ?? null,
-          realized_pnl: position.realizedPnl ?? null,
-        })
-        .eq("id", position.id)
-        .then(({ error }) => {
-          if (error) console.error("Could not update position:", error.message);
-        });
+      // A position can close or liquidate within a single round trip, and an
+      // update against a row that doesn't exist yet matches nothing and
+      // reports no error - the close would vanish silently.
+      const previous = pendingRef.current.get(position.id) ?? Promise.resolve();
+      const update = previous.then(() =>
+        remote.supabase
+          .from("positions")
+          .update({
+            status: position.status,
+            closed_at: position.closedAt ? new Date(position.closedAt).toISOString() : null,
+            close_price: position.closePrice ?? null,
+            realized_pnl: position.realizedPnl ?? null,
+          })
+          .eq("id", position.id)
+          .then(({ error }) => {
+            if (error) console.error("Could not update position:", error.message);
+          })
+      );
+      pendingRef.current.set(position.id, update);
     });
   }, [positions, restored, remote]);
 
