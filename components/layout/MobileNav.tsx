@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { useAccount } from "wagmi";
@@ -23,7 +24,12 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
 
   if (!isOpen) return null;
 
-  return (
+  // Portaled past <Navbar>'s <header> (which has backdrop-blur-xl) - a
+  // backdrop-filter ancestor becomes the containing block for any
+  // position: fixed descendant, so without this the drawer below gets
+  // trapped inside the header's own ~64px box instead of covering the
+  // viewport, and the page behind it bleeds through around its content.
+  return createPortal(
     <div className="fixed inset-0 z-50 md:hidden">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -80,6 +86,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
