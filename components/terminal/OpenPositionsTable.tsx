@@ -38,7 +38,7 @@ export function OpenPositionsTable() {
           const profit = position.pnl >= 0;
           const config = getMarketConfig(position.marketId);
           return (
-            <tr key={position.id} className="border-b border-white/5">
+            <tr key={position.id} className="border-b border-white/5 odd:bg-white/[0.02]">
               <td className="px-4 py-3 sm:px-6">
                 <span className="flex items-center gap-2">
                   <CryptoIcon symbol={config.icon} className="h-5 w-5" />

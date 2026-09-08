@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
@@ -15,6 +16,8 @@ const QUICK_MARGIN_AMOUNTS = [100, 500, 1000, 5000];
 
 export function OrderForm() {
   const { market, activeMarketId, openPosition } = useTerminal();
+  const bestBid = market.orderbook.bids[0];
+  const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(profile?.defaultLeverage ?? 10);
@@ -75,6 +78,19 @@ export function OrderForm() {
           Short
         </button>
       </div>
+
+      {bestBid && bestAsk && (
+        <div className="flex items-center justify-between font-mono text-xs">
+          <span className="flex items-center gap-1 text-emerald-400">
+            <ArrowUp className="h-3 w-3" />
+            {formatPrice(bestBid.price)}
+          </span>
+          <span className="flex items-center gap-1 text-rose-400">
+            <ArrowDown className="h-3 w-3" />
+            {formatPrice(bestAsk.price)}
+          </span>
+        </div>
+      )}
 
       <LeverageSlider leverage={leverage} onChange={setLeverage} />
 

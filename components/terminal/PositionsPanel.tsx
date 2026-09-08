@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Tabs } from "@/components/ui/Tabs";
-import { useTerminal } from "@/contexts/TerminalContext";
+import { useTerminal, type PositionsTab } from "@/contexts/TerminalContext";
 import { OpenPositionsTable } from "@/components/terminal/OpenPositionsTable";
 import { OrderHistoryTable } from "@/components/terminal/OrderHistoryTable";
 
@@ -12,19 +11,22 @@ const TABS = [
 ];
 
 export function PositionsPanel() {
-  const [tab, setTab] = useState("open");
-  const { openPositions, history } = useTerminal();
+  const { openPositions, history, positionsTab, setPositionsTab } = useTerminal();
 
   return (
-    <div className="flex flex-col">
+    <div id="positions-panel" className="flex flex-col scroll-mt-4">
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6">
-        <Tabs items={TABS} value={tab} onChange={setTab} />
+        <Tabs
+          items={TABS}
+          value={positionsTab}
+          onChange={(value) => setPositionsTab(value as PositionsTab)}
+        />
         <span className="text-xs text-white/40">
-          {tab === "open" ? `${openPositions.length} open` : `${history.length} closed`}
+          {positionsTab === "open" ? `${openPositions.length} open` : `${history.length} closed`}
         </span>
       </div>
       <div className="overflow-x-auto">
-        {tab === "open" ? <OpenPositionsTable /> : <OrderHistoryTable />}
+        {positionsTab === "open" ? <OpenPositionsTable /> : <OrderHistoryTable />}
       </div>
     </div>
   );
