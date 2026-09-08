@@ -7,7 +7,12 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button } from "@/components/ui/Button";
-import { calcLiquidationPrice, calcPositionSize } from "@/lib/calculations";
+import {
+  calcLiquidationPrice,
+  calcPositionSize,
+  clampLeverage,
+  MIN_LEVERAGE,
+} from "@/lib/calculations";
 import { formatCurrency, formatPrice } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
@@ -22,7 +27,7 @@ export function OrderForm() {
   const { profile } = useOnboarding();
   const { toast } = useToast();
   const [side, setSide] = useState<OrderSide>("long");
-  const [leverage, setLeverage] = useState(profile?.defaultLeverage ?? 10);
+  const [leverage, setLeverage] = useState(() => clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
   const [margin, setMargin] = useState(1000);
   const [justExecuted, setJustExecuted] = useState(false);
 

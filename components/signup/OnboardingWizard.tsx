@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { StepProgress } from "@/components/ui/StepProgress";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
+import { MIN_LEVERAGE } from "@/lib/calculations";
 import { SuccessState } from "@/components/signup/SuccessState";
 import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
@@ -52,7 +53,7 @@ export function OnboardingWizard() {
   const [displayName, setDisplayName] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [riskTolerance, setRiskTolerance] = useState<RiskTolerance | null>(null);
-  const [defaultLeverage, setDefaultLeverage] = useState(10);
+  const [defaultLeverage, setDefaultLeverage] = useState(MIN_LEVERAGE);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);

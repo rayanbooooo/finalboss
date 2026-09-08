@@ -1,7 +1,13 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { leverageFromSliderValue, sliderValueFromLeverage } from "@/lib/calculations";
+import {
+  leverageFromSliderValue,
+  liquidationDistancePercent,
+  sliderValueFromLeverage,
+  MAX_LEVERAGE,
+  MIN_LEVERAGE,
+} from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 
 interface LeverageSliderProps {
@@ -9,24 +15,17 @@ interface LeverageSliderProps {
   onChange: (leverage: number) => void;
 }
 
-const HIGH_RISK_THRESHOLD = 100;
-
 export function LeverageSlider({ leverage, onChange }: LeverageSliderProps) {
   const sliderValue = sliderValueFromLeverage(leverage);
-  const highRisk = leverage >= HIGH_RISK_THRESHOLD;
+  // The whole range starts at 500x, so every setting is extreme by any normal
+  // measure - there's no "safe" end of this slider to reassure anyone about.
+  const distance = liquidationDistancePercent(leverage);
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-white/70">Leverage</span>
-        <span
-          className={cn(
-            "font-mono text-lg font-bold",
-            highRisk ? "text-rose-400" : "text-violet-300"
-          )}
-        >
-          {leverage}x
-        </span>
+        <span className="font-mono text-lg font-bold text-rose-400">{leverage}x</span>
       </div>
 
       <input
@@ -44,21 +43,20 @@ export function LeverageSlider({ leverage, onChange }: LeverageSliderProps) {
       />
 
       <div className="mt-1.5 flex justify-between text-[11px] text-white/30">
-        <span>1x</span>
-        <span>250x</span>
-        <span>500x</span>
-        <span>1000x</span>
+        <span>{MIN_LEVERAGE}x</span>
+        <span>{(MIN_LEVERAGE + MAX_LEVERAGE) / 2}x</span>
+        <span>{MAX_LEVERAGE}x</span>
       </div>
 
-      {highRisk && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            Extreme leverage. A small price move against your position can trigger
-            liquidation almost instantly.
-          </span>
-        </div>
-      )}
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          At {leverage}x a move of just{" "}
+          <span className="font-mono font-semibold">{distance.toFixed(3)}%</span> against
+          you liquidates the position and loses the margin. Bitcoin moves that far in
+          seconds.
+        </span>
+      </div>
     </div>
   );
 }

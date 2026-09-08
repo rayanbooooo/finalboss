@@ -66,21 +66,34 @@ export function calcPnlPercent(pnl: number, margin: number): number {
   return (pnl / margin) * 100;
 }
 
+export const MIN_LEVERAGE = 500;
+export const MAX_LEVERAGE = 1000;
+
+/** Existing profiles predate the 500x floor, so their stored default has to
+ * be pulled into range rather than trusted. */
+export function clampLeverage(leverage: number): number {
+  if (!Number.isFinite(leverage)) return MIN_LEVERAGE;
+  return Math.min(MAX_LEVERAGE, Math.max(MIN_LEVERAGE, Math.round(leverage)));
+}
+
 /**
- * Maps a linear 0-100 slider input to a 1x-1000x leverage value along an
- * exponential curve, so low-leverage values aren't crushed into one end of
- * the track.
+ * Linear across the 0-100 slider: the range is only 2x wide, so an
+ * exponential curve would buy nothing and would make round numbers
+ * unreachable. Each step is 5x, so 500/600/750/1000 all land exactly.
  */
 export function leverageFromSliderValue(sliderValue: number): number {
   const t = clampSlider(sliderValue) / 100;
-  const leverage = Math.pow(1000, t);
-  return Math.max(1, Math.round(leverage));
+  return clampLeverage(MIN_LEVERAGE + t * (MAX_LEVERAGE - MIN_LEVERAGE));
 }
 
 export function sliderValueFromLeverage(leverage: number): number {
-  const safeLeverage = Math.max(1, leverage);
-  const t = Math.log(safeLeverage) / Math.log(1000);
+  const t = (clampLeverage(leverage) - MIN_LEVERAGE) / (MAX_LEVERAGE - MIN_LEVERAGE);
   return Math.round(clampSlider(t * 100));
+}
+
+/** How far price can move against a position before it's liquidated. */
+export function liquidationDistancePercent(leverage: number): number {
+  return (1 / leverage) * (1 - MAINTENANCE_MARGIN_SHARE) * 100;
 }
 
 function clampSlider(value: number): number {

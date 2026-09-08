@@ -8,6 +8,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
+import { clampLeverage, MIN_LEVERAGE } from "@/lib/calculations";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ExperienceLevel, RiskTolerance } from "@/types/onboarding";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ export function SettingsPanel() {
   const [riskTolerance, setRiskTolerance] = useState<RiskTolerance>(
     profile?.riskTolerance ?? "moderate"
   );
-  const [defaultLeverage, setDefaultLeverage] = useState(profile?.defaultLeverage ?? 10);
+  const [defaultLeverage, setDefaultLeverage] = useState(clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
   const [saving, setSaving] = useState(false);
 
   // The profile can arrive after first render (the Supabase fetch resolves
@@ -47,7 +48,7 @@ export function SettingsPanel() {
     setDisplayName(profile?.displayName ?? "");
     setExperienceLevel(profile?.experienceLevel ?? "some");
     setRiskTolerance(profile?.riskTolerance ?? "moderate");
-    setDefaultLeverage(profile?.defaultLeverage ?? 10);
+    setDefaultLeverage(clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
   }
 
   if (!isResolved) {

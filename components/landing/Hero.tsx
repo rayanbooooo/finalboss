@@ -8,15 +8,23 @@ import { buttonVariants } from "@/components/ui/Button";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { calcLiquidationPrice, calcPnl, calcPositionSize } from "@/lib/calculations";
+import {
+  calcLiquidationPrice,
+  calcPnl,
+  calcPositionSize,
+  MIN_LEVERAGE,
+} from "@/lib/calculations";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
 const PREVIEW_MARGIN = 1000;
-const CARD_LEVERAGE = 20;
-const CARD_ENTRY_DISCOUNT = 0.973;
+const CARD_LEVERAGE = MIN_LEVERAGE;
+// A 0.1% favourable move. At 500x anything larger would be a position that
+// had already been liquidated by the opposite move, so a bigger discount
+// here would advertise a gain the engine can't actually produce.
+const CARD_ENTRY_DISCOUNT = 0.999;
 
 export function Hero() {
   const { activeMarket: market } = useGlobalMarketFeed();
@@ -25,7 +33,7 @@ export function Hero() {
   const launchHref = isOnboarded ? "/terminal" : "/signup";
 
   const [side, setSide] = useState<OrderSide>("long");
-  const [leverage, setLeverage] = useState(20);
+  const [leverage, setLeverage] = useState(MIN_LEVERAGE);
   // Frozen at first paint so the floating card doesn't jump around as the
   // live price ticks - only the "mark" side of it stays live.
   const [cardEntry] = useState(() => market.price * CARD_ENTRY_DISCOUNT);
