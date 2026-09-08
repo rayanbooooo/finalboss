@@ -21,6 +21,7 @@ interface OnboardingContextValue {
   /** Supabase user id when signed in - this is what scopes persisted positions. */
   userId: string | null;
   markOnboarded: (profile: OnboardingProfile) => void;
+  updateProfile: (changes: Partial<OnboardingProfile>) => Promise<void>;
   signUpWithEmail: (
     email: string,
     password: string,
@@ -126,6 +127,33 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setProfile(next);
   }, []);
 
+  const updateProfile = useCallback(
+    async (changes: Partial<OnboardingProfile>) => {
+      const next = profile ? { ...profile, ...changes } : null;
+      if (!next) return;
+      setProfile(next);
+
+      const supabase = getSupabase();
+      if (supabase && userId) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            display_name: next.displayName,
+            experience_level: next.experienceLevel,
+            risk_tolerance: next.riskTolerance,
+            default_leverage: next.defaultLeverage,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+        if (error) console.error("Could not save profile:", error.message);
+        return;
+      }
+
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    },
+    [profile, userId]
+  );
+
   const signUpWithEmail = useCallback(
     async (email: string, password: string, next: OnboardingProfile): Promise<SignUpResult> => {
       const supabase = getSupabase();
@@ -185,6 +213,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     profile,
     userId,
     markOnboarded,
+    updateProfile,
     signUpWithEmail,
     signInWithEmail,
     signOut,

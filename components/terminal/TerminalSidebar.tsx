@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,6 +10,9 @@ import {
   History,
   Home,
   ListOrdered,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
   Wallet,
 } from "lucide-react";
 import { useAccount } from "wagmi";
@@ -17,14 +21,16 @@ import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
+const COLLAPSED_KEY = "finalboss:sidebar-collapsed";
+
 function scrollToPositions() {
   document.getElementById("positions-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**
- * FrontDEX-style icon rail, scoped to the /terminal app shell only (the
- * marketing site keeps its own top Navbar). Every icon goes somewhere real -
- * an icon without a destination would misrepresent what the app can do.
+ * The terminal's own navigation - the marketing site keeps its top Navbar.
+ * Collapses to an icon rail; every entry goes somewhere real, since an icon
+ * without a destination would misrepresent what the app can do.
  */
 export function TerminalSidebar() {
   const { isConnected } = useAccount();
@@ -32,6 +38,28 @@ export function TerminalSidebar() {
   const { positionsTab, setPositionsTab, fundingMode, openFunding } = useTerminal();
   const pathname = usePathname();
   const router = useRouter();
+  const [collapsed, setCollapsed] = useState(true);
+
+  // Read after paint so the server-rendered markup and hydration agree.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) !== "false");
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(COLLAPSED_KEY, String(next));
+      } catch {
+        // Preference just won't stick; the sidebar still works.
+      }
+      return next;
+    });
+  };
+
   const onTradeScreen = pathname === "/terminal";
 
   // The positions panel only exists on the trade screen, so from any other
@@ -43,55 +71,90 @@ export function TerminalSidebar() {
   };
 
   return (
-    <div className="hidden w-16 shrink-0 flex-col items-center border-r border-white/5 bg-base-900/60 py-4 lg:flex">
-      <Link href="/" aria-label="FinalBoss home">
+    <div
+      className={cn(
+        "hidden shrink-0 flex-col border-r border-white/5 bg-base-900/60 py-4 transition-[width] duration-200 lg:flex",
+        collapsed ? "w-16 items-center" : "w-56 px-3"
+      )}
+    >
+      <Link
+        href="/"
+        aria-label="FinalBoss home"
+        className={cn("flex items-center gap-2", collapsed ? "" : "px-2")}
+      >
         <Logo className="h-9 w-9" />
+        {!collapsed && <span className="font-bold tracking-tight text-white">FinalBoss</span>}
       </Link>
 
-      <div className="mt-8 flex flex-col items-center gap-1">
-        <SidebarButton icon={CandlestickChart} label="Trade" active={onTradeScreen} href="/terminal" />
-        <SidebarButton
+      <div className="mt-8 flex w-full flex-col items-center gap-1">
+        <SidebarItem
+          icon={CandlestickChart}
+          label="Trade"
+          collapsed={collapsed}
+          active={onTradeScreen}
+          href="/terminal"
+        />
+        <SidebarItem
           icon={ListOrdered}
-          label="Open positions"
+          label="Positions"
+          collapsed={collapsed}
           active={onTradeScreen && positionsTab === "open"}
           onClick={() => showPositions("open")}
         />
-        <SidebarButton
+        <SidebarItem
           icon={History}
-          label="Order history"
+          label="History"
+          collapsed={collapsed}
           active={onTradeScreen && positionsTab === "history"}
           onClick={() => showPositions("history")}
         />
-        <SidebarButton
+        <SidebarItem
           icon={ArrowDownToLine}
           label="Deposit"
+          collapsed={collapsed}
           active={fundingMode === "deposit"}
           onClick={() => openFunding("deposit")}
         />
-        <SidebarButton
+        <SidebarItem
           icon={ArrowUpFromLine}
           label="Withdraw"
+          collapsed={collapsed}
           active={fundingMode === "withdraw"}
           onClick={() => openFunding("withdraw")}
         />
+        <SidebarItem
+          icon={Settings}
+          label="Settings"
+          collapsed={collapsed}
+          active={pathname === "/terminal/settings"}
+          href="/terminal/settings"
+        />
       </div>
 
-      <div className="mt-auto flex flex-col items-center gap-1">
-        <SidebarButton
+      <div className="mt-auto flex w-full flex-col items-center gap-1">
+        <SidebarItem
           icon={Wallet}
           label={isConnected ? "Wallet" : "Connect wallet"}
+          collapsed={collapsed}
           dot={isConnected}
           onClick={openWalletModal}
         />
-        <SidebarButton icon={Home} label="Back to site" href="/" />
+        <SidebarItem icon={Home} label="Back to site" collapsed={collapsed} href="/" />
+        <SidebarItem
+          icon={collapsed ? PanelLeftOpen : PanelLeftClose}
+          label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          collapsed={collapsed}
+          onClick={toggleCollapsed}
+        />
       </div>
     </div>
   );
 }
 
-interface SidebarButtonProps {
+interface SidebarItemProps {
   icon: typeof CandlestickChart;
   label: string;
+  collapsed: boolean;
   /** Marks the current section. Deliberately a quiet tint, not a filled
    * button - a solid accent reads as "press me" and makes an already-active
    * item feel broken when clicking it does nothing. */
@@ -102,9 +165,18 @@ interface SidebarButtonProps {
   href?: string;
 }
 
-function SidebarButton({ icon: Icon, label, active, dot, onClick, href }: SidebarButtonProps) {
+function SidebarItem({
+  icon: Icon,
+  label,
+  collapsed,
+  active,
+  dot,
+  onClick,
+  href,
+}: SidebarItemProps) {
   const className = cn(
-    "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+    "relative flex items-center rounded-lg transition-colors",
+    collapsed ? "h-10 w-10 justify-center" : "h-10 w-full gap-3 px-3",
     active
       ? "bg-violet-500/15 text-violet-300"
       : "text-white/40 hover:bg-white/5 hover:text-white/80"
@@ -112,18 +184,24 @@ function SidebarButton({ icon: Icon, label, active, dot, onClick, href }: Sideba
 
   const content = (
     <>
-      <Icon className="h-[18px] w-[18px]" />
+      <span className="relative flex shrink-0 items-center justify-center">
+        <Icon className="h-[18px] w-[18px]" />
+        {dot && (
+          <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        )}
+      </span>
+      {!collapsed && <span className="truncate text-sm font-medium">{label}</span>}
       {active && (
-        <span className="absolute -left-2 h-5 w-0.5 rounded-full bg-violet-400" aria-hidden="true" />
-      )}
-      {dot && (
-        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span
+          className={cn("absolute h-5 w-0.5 rounded-full bg-violet-400", collapsed ? "-left-2" : "-left-1")}
+          aria-hidden="true"
+        />
       )}
     </>
   );
 
-  // title gives the icon rail a hover tooltip - without labels there's
-  // otherwise no way to tell what any of these do.
+  // title gives the collapsed rail a hover tooltip - without labels there's
+  // otherwise no way to tell what any of the icons do.
   if (href) {
     return (
       <Link href={href} aria-label={label} title={label} className={className}>
