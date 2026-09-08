@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { formatCurrency } from "@/lib/format";
@@ -12,7 +11,7 @@ import { cn } from "@/lib/utils";
  * everything in USDC rather than holding a basket of coins.
  */
 export function BalancesPanel() {
-  const { availableBalance, equity, lockedMargin } = useTerminal();
+  const { availableBalance, equity, lockedMargin, openFunding } = useTerminal();
   const unrealised = equity - availableBalance - lockedMargin;
 
   return (
@@ -40,20 +39,22 @@ export function BalancesPanel() {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Link
-          href="/terminal/deposit"
+        <button
+          type="button"
+          onClick={() => openFunding("deposit")}
           className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
         >
           <ArrowDownToLine className="h-3.5 w-3.5" />
           Deposit
-        </Link>
-        <Link
-          href="/terminal/withdraw"
+        </button>
+        <button
+          type="button"
+          onClick={() => openFunding("withdraw")}
           className="flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
         >
           <ArrowUpFromLine className="h-3.5 w-3.5" />
           Withdraw
-        </Link>
+        </button>
       </div>
     </div>
   );

@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const QUICK_AMOUNTS = [500, 1000, 5000, 10000];
+const CLOSE_DELAY_MS = 900;
 
 interface FundingFormProps {
   mode: "deposit" | "withdraw";
+  onDone: () => void;
 }
 
-export function FundingForm({ mode }: FundingFormProps) {
-  const router = useRouter();
+export function FundingForm({ mode, onDone }: FundingFormProps) {
   const { availableBalance, deposit, withdraw } = useTerminal();
   const [amount, setAmount] = useState(1000);
   const [done, setDone] = useState(false);
@@ -23,24 +22,17 @@ export function FundingForm({ mode }: FundingFormProps) {
   const isWithdrawal = mode === "withdraw";
   const exceedsBalance = isWithdrawal && amount > availableBalance;
   const invalid = amount <= 0 || exceedsBalance;
-  const Icon = isWithdrawal ? ArrowUpFromLine : ArrowDownToLine;
 
   const handleSubmit = () => {
     if (invalid) return;
     if (isWithdrawal) withdraw(amount);
     else deposit(amount);
     setDone(true);
-    setTimeout(() => router.push("/terminal"), 1200);
+    setTimeout(onDone, CLOSE_DELAY_MS);
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">
-      <div className="mb-1 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-white/50" />
-        <h1 className="text-lg font-semibold text-white">
-          {isWithdrawal ? "Withdraw funds" : "Deposit funds"}
-        </h1>
-      </div>
+    <div>
       <p className="mb-5 text-sm leading-relaxed text-white/50">
         {isWithdrawal
           ? "Moves demo funds out of your trading balance. No real money leaves anywhere."

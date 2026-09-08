@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -29,9 +29,18 @@ function scrollToPositions() {
 export function TerminalSidebar() {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { positionsTab, setPositionsTab } = useTerminal();
+  const { positionsTab, setPositionsTab, fundingMode, openFunding } = useTerminal();
   const pathname = usePathname();
+  const router = useRouter();
   const onTradeScreen = pathname === "/terminal";
+
+  // The positions panel only exists on the trade screen, so from any other
+  // route these have to navigate back to it or the click does nothing.
+  const showPositions = (tab: "open" | "history") => {
+    setPositionsTab(tab);
+    if (onTradeScreen) scrollToPositions();
+    else router.push("/terminal");
+  };
 
   return (
     <div className="hidden w-16 shrink-0 flex-col items-center border-r border-white/5 bg-base-900/60 py-4 lg:flex">
@@ -45,42 +54,34 @@ export function TerminalSidebar() {
           icon={ListOrdered}
           label="Open positions"
           active={onTradeScreen && positionsTab === "open"}
-          onClick={() => {
-            setPositionsTab("open");
-            scrollToPositions();
-          }}
+          onClick={() => showPositions("open")}
         />
         <SidebarButton
           icon={History}
           label="Order history"
           active={onTradeScreen && positionsTab === "history"}
-          onClick={() => {
-            setPositionsTab("history");
-            scrollToPositions();
-          }}
+          onClick={() => showPositions("history")}
         />
         <SidebarButton
           icon={ArrowDownToLine}
           label="Deposit"
-          active={pathname === "/terminal/deposit"}
-          href="/terminal/deposit"
+          active={fundingMode === "deposit"}
+          onClick={() => openFunding("deposit")}
         />
         <SidebarButton
           icon={ArrowUpFromLine}
           label="Withdraw"
-          active={pathname === "/terminal/withdraw"}
-          href="/terminal/withdraw"
+          active={fundingMode === "withdraw"}
+          onClick={() => openFunding("withdraw")}
         />
       </div>
 
       <div className="mt-auto flex flex-col items-center gap-1">
         <SidebarButton
           icon={Wallet}
-          label={isConnected ? "Wallet connected" : "Connect wallet"}
-          active={isConnected}
-          onClick={() => {
-            if (!isConnected) openWalletModal();
-          }}
+          label={isConnected ? "Wallet" : "Connect wallet"}
+          dot={isConnected}
+          onClick={openWalletModal}
         />
         <SidebarButton icon={Home} label="Back to site" href="/" />
       </div>
@@ -91,28 +92,49 @@ export function TerminalSidebar() {
 interface SidebarButtonProps {
   icon: typeof CandlestickChart;
   label: string;
+  /** Marks the current section. Deliberately a quiet tint, not a filled
+   * button - a solid accent reads as "press me" and makes an already-active
+   * item feel broken when clicking it does nothing. */
   active?: boolean;
+  /** A status dot, for state that isn't "you are here" (a live connection). */
+  dot?: boolean;
   onClick?: () => void;
   href?: string;
 }
 
-function SidebarButton({ icon: Icon, label, active, onClick, href }: SidebarButtonProps) {
+function SidebarButton({ icon: Icon, label, active, dot, onClick, href }: SidebarButtonProps) {
   const className = cn(
-    "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-    active ? "bg-violet-600 text-white" : "text-white/40 hover:bg-white/5 hover:text-white/80"
+    "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+    active
+      ? "bg-violet-500/15 text-violet-300"
+      : "text-white/40 hover:bg-white/5 hover:text-white/80"
   );
 
+  const content = (
+    <>
+      <Icon className="h-[18px] w-[18px]" />
+      {active && (
+        <span className="absolute -left-2 h-5 w-0.5 rounded-full bg-violet-400" aria-hidden="true" />
+      )}
+      {dot && (
+        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      )}
+    </>
+  );
+
+  // title gives the icon rail a hover tooltip - without labels there's
+  // otherwise no way to tell what any of these do.
   if (href) {
     return (
-      <Link href={href} aria-label={label} className={className}>
-        <Icon className="h-[18px] w-[18px]" />
+      <Link href={href} aria-label={label} title={label} className={className}>
+        {content}
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} aria-label={label} className={className}>
-      <Icon className="h-[18px] w-[18px]" />
+    <button type="button" onClick={onClick} aria-label={label} title={label} className={className}>
+      {content}
     </button>
   );
 }

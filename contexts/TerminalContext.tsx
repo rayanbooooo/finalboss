@@ -30,7 +30,12 @@ interface TerminalContextValue {
   fundingHistory: FundingTransaction[];
   deposit: (amount: number) => void;
   withdraw: (amount: number) => void;
+  fundingMode: FundingMode;
+  openFunding: (mode: Exclude<FundingMode, null>) => void;
+  closeFunding: () => void;
 }
+
+export type FundingMode = "deposit" | "withdraw" | null;
 
 const TerminalContext = createContext<TerminalContextValue | null>(null);
 
@@ -40,6 +45,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const { openPositions, history, open, close } = usePositions(markets, userId);
   const { transactions, netFunding, deposit, withdraw } = useFunding(userId);
   const [positionsTab, setPositionsTab] = useState<PositionsTab>("open");
+  const [fundingMode, setFundingMode] = useState<FundingMode>(null);
 
   // Derived rather than stored: funding in, minus what's locked as margin,
   // plus whatever closed positions realised. A stored balance could drift
@@ -67,6 +73,9 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     fundingHistory: transactions,
     deposit,
     withdraw,
+    fundingMode,
+    openFunding: setFundingMode,
+    closeFunding: () => setFundingMode(null),
   };
 
   return <TerminalContext.Provider value={value}>{children}</TerminalContext.Provider>;

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { TerminalProvider } from "@/contexts/TerminalContext";
 import { TerminalGate } from "@/components/terminal/TerminalGate";
 import { TerminalSidebar } from "@/components/terminal/TerminalSidebar";
+import { FundingModal } from "@/components/terminal/FundingModal";
 
 export default function TerminalRouteLayout({ children }: { children: ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
           <TerminalSidebar />
           <div className="flex min-w-0 flex-1 flex-col">{children}</div>
         </div>
+        <FundingModal />
       </TerminalProvider>
     </TerminalGate>
   );
