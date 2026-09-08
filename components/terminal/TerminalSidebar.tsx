@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { CandlestickChart, History, Home, ListOrdered, Wallet } from "lucide-react";
+import { usePathname } from "next/navigation";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CandlestickChart,
+  History,
+  Home,
+  ListOrdered,
+  Wallet,
+} from "lucide-react";
 import { useAccount } from "wagmi";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useWalletModal } from "@/contexts/WalletModalContext";
@@ -14,14 +23,15 @@ function scrollToPositions() {
 
 /**
  * FrontDEX-style icon rail, scoped to the /terminal app shell only (the
- * marketing site keeps its own top Navbar). Every icon maps to something
- * that actually exists on this page - no Deposit/Withdraw/Settings entries,
- * since those pages don't exist yet and a dead icon would be a lie.
+ * marketing site keeps its own top Navbar). Every icon goes somewhere real -
+ * an icon without a destination would misrepresent what the app can do.
  */
 export function TerminalSidebar() {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
   const { positionsTab, setPositionsTab } = useTerminal();
+  const pathname = usePathname();
+  const onTradeScreen = pathname === "/terminal";
 
   return (
     <div className="hidden w-16 shrink-0 flex-col items-center border-r border-white/5 bg-base-900/60 py-4 lg:flex">
@@ -30,11 +40,11 @@ export function TerminalSidebar() {
       </Link>
 
       <div className="mt-8 flex flex-col items-center gap-1">
-        <SidebarButton icon={CandlestickChart} label="Trade" active />
+        <SidebarButton icon={CandlestickChart} label="Trade" active={onTradeScreen} href="/terminal" />
         <SidebarButton
           icon={ListOrdered}
           label="Open positions"
-          active={positionsTab === "open"}
+          active={onTradeScreen && positionsTab === "open"}
           onClick={() => {
             setPositionsTab("open");
             scrollToPositions();
@@ -43,11 +53,23 @@ export function TerminalSidebar() {
         <SidebarButton
           icon={History}
           label="Order history"
-          active={positionsTab === "history"}
+          active={onTradeScreen && positionsTab === "history"}
           onClick={() => {
             setPositionsTab("history");
             scrollToPositions();
           }}
+        />
+        <SidebarButton
+          icon={ArrowDownToLine}
+          label="Deposit"
+          active={pathname === "/terminal/deposit"}
+          href="/terminal/deposit"
+        />
+        <SidebarButton
+          icon={ArrowUpFromLine}
+          label="Withdraw"
+          active={pathname === "/terminal/withdraw"}
+          href="/terminal/withdraw"
         />
       </div>
 

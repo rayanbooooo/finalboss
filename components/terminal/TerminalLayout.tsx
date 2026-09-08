@@ -11,6 +11,7 @@ import { OrderBook } from "@/components/terminal/OrderBook";
 import { TradeHistoryTape } from "@/components/terminal/TradeHistoryTape";
 import { MarketPanelTabs } from "@/components/terminal/MarketPanelTabs";
 import { OrderForm } from "@/components/terminal/OrderForm";
+import { BalancesPanel } from "@/components/terminal/BalancesPanel";
 import { PositionsPanel } from "@/components/terminal/PositionsPanel";
 import { aggregateCandles, DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 import type { Candle } from "@/types/market";
@@ -102,6 +103,7 @@ export function TerminalLayout() {
               scrolling the panel. */}
           <div className="order-3 border-b border-white/5 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-l lg:border-white/5">
             <OrderForm />
+            <BalancesPanel />
           </div>
 
           <div className="order-4 lg:order-none lg:col-start-2 lg:row-start-2 lg:overflow-y-auto lg:border-t lg:border-white/5">

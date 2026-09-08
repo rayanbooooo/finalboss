@@ -7,15 +7,15 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button } from "@/components/ui/Button";
 import { calcLiquidationPrice, calcPositionSize } from "@/lib/calculations";
-import { formatPrice } from "@/lib/format";
+import { formatCurrency, formatPrice } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
 const EXECUTED_LABEL_MS = 1200;
-const QUICK_MARGIN_AMOUNTS = [100, 500, 1000, 5000];
+const BALANCE_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 export function OrderForm() {
-  const { market, activeMarketId, openPosition } = useTerminal();
+  const { market, activeMarketId, openPosition, availableBalance } = useTerminal();
   const bestBid = market.orderbook.bids[0];
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
@@ -33,8 +33,10 @@ export function OrderForm() {
     [margin, leverage, market.price]
   );
 
+  const exceedsBalance = margin > availableBalance;
+
   const handleExecute = () => {
-    if (margin <= 0) return;
+    if (margin <= 0 || exceedsBalance) return;
     openPosition({
       marketId: activeMarketId,
       symbol: market.symbol,
@@ -107,23 +109,39 @@ export function OrderForm() {
           className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white focus:border-violet-500 focus:outline-none"
         />
         <div className="mt-2 grid grid-cols-4 gap-1.5">
-          {QUICK_MARGIN_AMOUNTS.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              onClick={() => setMargin(amount)}
-              className={cn(
-                "min-h-8 rounded-lg border text-xs font-medium transition-colors",
-                margin === amount
-                  ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
-                  : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/80"
-              )}
-            >
-              ${amount.toLocaleString("en-US")}
-            </button>
-          ))}
+          {BALANCE_FRACTIONS.map((fraction) => {
+            const value = Math.floor(availableBalance * fraction);
+            return (
+              <button
+                key={fraction}
+                type="button"
+                disabled={availableBalance <= 0}
+                onClick={() => setMargin(value)}
+                className={cn(
+                  "min-h-8 rounded-lg border text-xs font-medium transition-colors disabled:opacity-40",
+                  margin === value && value > 0
+                    ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                    : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/80"
+                )}
+              >
+                {fraction * 100}%
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-2 flex justify-between text-xs">
+          <span className="text-white/40">Available</span>
+          <span className="font-mono tabular-nums text-white/60">
+            {formatCurrency(availableBalance)}
+          </span>
         </div>
       </div>
+
+      {exceedsBalance && (
+        <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+          Margin exceeds your available balance of {formatCurrency(availableBalance)}.
+        </p>
+      )}
 
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
@@ -139,7 +157,7 @@ export function OrderForm() {
         variant={side === "long" ? "secondary" : "danger"}
         size="lg"
         onClick={handleExecute}
-        disabled={margin <= 0}
+        disabled={margin <= 0 || exceedsBalance}
         className="w-full"
       >
         {justExecuted ? "Order Filled" : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
