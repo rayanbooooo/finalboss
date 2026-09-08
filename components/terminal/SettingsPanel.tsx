@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { ExperienceLevel, RiskTolerance } from "@/types/onboarding";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,7 @@ const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
 ];
 
 export function SettingsPanel() {
-  const { profile, userId, updateProfile, signOut } = useOnboarding();
+  const { profile, userId, isResolved, updateProfile, signOut } = useOnboarding();
   const { toast } = useToast();
 
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
@@ -36,7 +38,51 @@ export function SettingsPanel() {
   const [defaultLeverage, setDefaultLeverage] = useState(profile?.defaultLeverage ?? 10);
   const [saving, setSaving] = useState(false);
 
-  if (!profile) return null;
+  // The profile can arrive after first render (the Supabase fetch resolves
+  // later), so the fields have to re-seed when it does or they'd stay stuck
+  // on the empty defaults they were initialised with.
+  const [syncedProfile, setSyncedProfile] = useState(profile);
+  if (profile !== syncedProfile) {
+    setSyncedProfile(profile);
+    setDisplayName(profile?.displayName ?? "");
+    setExperienceLevel(profile?.experienceLevel ?? "some");
+    setRiskTolerance(profile?.riskTolerance ?? "moderate");
+    setDefaultLeverage(profile?.defaultLeverage ?? 10);
+  }
+
+  if (!isResolved) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl justify-center py-16">
+        <Spinner className="h-7 w-7 text-white/40" />
+      </div>
+    );
+  }
+
+  // Reachable with a wallet-only session: that passes the terminal gate but
+  // never creates a profile. Rendering nothing here just looked broken.
+  if (!profile) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <h1 className="text-xl font-semibold text-white">Settings</h1>
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <p className="text-sm leading-relaxed text-white/60">
+            This session is signed in with a wallet and has no account profile
+            yet, so there are no preferences to edit. Create one to set a
+            display name, risk tolerance and a default leverage.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/signup" className={cn(buttonVariants("primary", "lg"))}>
+              Create a profile
+            </Link>
+            <Button variant="outline" size="lg" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const dirty =
     displayName.trim() !== profile.displayName ||

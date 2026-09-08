@@ -98,15 +98,25 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       );
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      const user = data.session?.user;
-      if (user) {
-        setUserId(user.id);
-        void loadProfile(user.id, user.email);
-      }
-      setAuthReady(true);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const user = data.session?.user;
+        if (user) {
+          setUserId(user.id);
+          void loadProfile(user.id, user.email);
+        }
+      })
+      .catch((error) => {
+        // Unreachable backend must not wedge the app: without this the
+        // ready flag never flips, and every gated screen renders an
+        // infinite spinner instead of falling back to the local profile.
+        console.error("Could not restore session:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setAuthReady(true);
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelled) return;
