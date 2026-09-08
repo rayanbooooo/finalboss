@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/Button";
-import { CandlestickChart } from "@/components/terminal/CandlestickChart";
+import { TradingChart } from "@/components/terminal/TradingChart";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -106,11 +106,12 @@ export function Hero() {
           </div>
 
           <div className="px-2 pb-3 pt-2">
-            <CandlestickChart
+            <TradingChart
               candles={market.candles}
               currentPrice={market.price}
               heightClassName="h-[220px]"
               interactive={false}
+              showPriceBadge={false}
             />
           </div>
         </motion.div>

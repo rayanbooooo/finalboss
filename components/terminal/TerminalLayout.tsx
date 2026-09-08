@@ -2,7 +2,7 @@
 
 import { useTerminal } from "@/contexts/TerminalContext";
 import { MarketHeader } from "@/components/terminal/MarketHeader";
-import { CandlestickChart } from "@/components/terminal/CandlestickChart";
+import { TradingChart } from "@/components/terminal/TradingChart";
 import { OrderBook } from "@/components/terminal/OrderBook";
 import { TradeHistoryTape } from "@/components/terminal/TradeHistoryTape";
 import { MarketPanelTabs } from "@/components/terminal/MarketPanelTabs";
@@ -16,7 +16,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
  * grid with a persistent orderbook on the left and trade tape on the right.
  */
 export function TerminalLayout() {
-  const { market } = useTerminal();
+  const { market, openPositions } = useTerminal();
 
   return (
     <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-6">
@@ -29,7 +29,11 @@ export function TerminalLayout() {
           </div>
 
           <div className="order-1 border-b border-white/5 p-3 sm:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:border-b-0">
-            <CandlestickChart candles={market.candles} currentPrice={market.price} />
+            <TradingChart
+              candles={market.candles}
+              currentPrice={market.price}
+              positions={openPositions}
+            />
           </div>
 
           <div className="order-2 border-b border-white/5 lg:hidden">

@@ -22,11 +22,25 @@ export function nextTick(prevPrice: number): number {
  * first render. Server-rendered HTML and the client's hydration pass must
  * produce identical output, so anything randomized has to wait until a
  * post-mount effect to avoid a hydration mismatch.
+ *
+ * Anchored to a fixed (not "now") epoch, one minute apart per candle, so the
+ * millisecond timestamps are still properly ascending once the chart divides
+ * them down to seconds - tiny sequential indices (0, 1, 2, ...) would all
+ * collapse to the same second and violate lightweight-charts' ascending-time
+ * requirement.
  */
+const FLAT_CANDLE_ANCHOR_MS = 1_700_000_000_000;
+
 export function createFlatCandles(count: number, price: number): Candle[] {
   const candles: Candle[] = [];
   for (let i = 0; i < count; i += 1) {
-    candles.push({ time: i, open: price, high: price, low: price, close: price });
+    candles.push({
+      time: FLAT_CANDLE_ANCHOR_MS + i * 60_000,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    });
   }
   return candles;
 }
