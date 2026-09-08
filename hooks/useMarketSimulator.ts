@@ -27,8 +27,20 @@ const VOLUME_BASELINE_FACTOR = 2650;
  * from lib/markets.ts - always the same object at a given call site - so
  * the values it seeds intervals/effects with below never change per call
  * site and are safe to leave out of those effects' dependency arrays.
+ *
+ * `realAnchorPrice` is the market's last real traded price once the (plain
+ * HTTPS, no persistent connection needed) historical-candles fetch in
+ * useMultiMarketFeed succeeds, even if the websocket never manages to go
+ * live. Without it, a market stuck in fallback mode would mean-revert
+ * toward lib/markets.ts's hardcoded seed price forever - fine on day one,
+ * increasingly wrong as real prices move on, and the reason two separate
+ * page loads that both land in fallback mode could show two very different
+ * "simulated" numbers instead of both tracking near the truth.
  */
-export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
+export function useMarketSimulator(
+  config: MarketConfig,
+  realAnchorPrice?: number
+): MarketSnapshot {
   const { symbol, seedPrice } = config;
   const [price, setPrice] = useState(seedPrice);
   const [candles, setCandles] = useState<Candle[]>(() => createFlatCandles(300, seedPrice));
@@ -39,10 +51,16 @@ export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
   const [volume24h, setVolume24h] = useState(seedPrice * VOLUME_BASELINE_FACTOR);
   const [prevPrice, setPrevPrice] = useState(price);
   const priceRef = useRef(price);
+  const anchorRef = useRef(realAnchorPrice);
+  const hasSnappedToAnchorRef = useRef(false);
 
   useEffect(() => {
     priceRef.current = price;
   }, [price]);
+
+  useEffect(() => {
+    anchorRef.current = realAnchorPrice;
+  }, [realAnchorPrice]);
 
   // Swap the deterministic SSR-safe placeholder data for randomized data
   // once mounted on the client, so hydration never has to reconcile
@@ -56,6 +74,20 @@ export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The first time a real anchor price shows up, snap onto it once so the
+  // fallback starts near reality instead of the static seed - later anchor
+  // refreshes just shift where future ticks mean-revert to (below), so the
+  // series keeps evolving smoothly rather than jumping every time.
+  useEffect(() => {
+    if (realAnchorPrice === undefined || hasSnappedToAnchorRef.current) return undefined;
+    hasSnappedToAnchorRef.current = true;
+    const raf = requestAnimationFrame(() => {
+      setPrice(realAnchorPrice);
+      setCandles(generateInitialCandles(300, realAnchorPrice));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [realAnchorPrice]);
+
   if (price !== prevPrice) {
     setPrevPrice(price);
     setCandles((prev) => nextCandle(prev, price, CANDLE_INTERVAL_MS));
@@ -63,7 +95,7 @@ export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPrice((prev) => nextTick(prev, seedPrice));
+      setPrice((prev) => nextTick(prev, anchorRef.current ?? seedPrice));
     }, PRICE_TICK_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

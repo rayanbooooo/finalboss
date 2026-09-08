@@ -64,14 +64,6 @@ function addVolumeToLastCandle(candles: Candle[], size: number): Candle[] {
  * that one market gracefully instead of freezing it.
  */
 export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
-  const simulators: Record<MarketId, MarketSnapshot> = {
-    BTC: useMarketSimulator(MARKETS[0]),
-    ETH: useMarketSimulator(MARKETS[1]),
-    SOL: useMarketSimulator(MARKETS[2]),
-    XRP: useMarketSimulator(MARKETS[3]),
-    DOGE: useMarketSimulator(MARKETS[4]),
-  };
-
   const [live, setLive] = useState<Record<MarketId, LiveState>>(() => {
     const init = {} as Record<MarketId, LiveState>;
     MARKETS.forEach((m) => {
@@ -79,6 +71,22 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     });
     return init;
   });
+
+  // Once the historical-candles fetch succeeds for a market, its last real
+  // price anchors that market's simulator fallback (see useMarketSimulator)
+  // even if the websocket itself never goes live - candles only populate
+  // from a successful fetch, so their presence is the "we have a real
+  // price" signal.
+  const anchorPrice = (id: MarketId): number | undefined =>
+    live[id].candles.length > 0 ? live[id].price : undefined;
+
+  const simulators: Record<MarketId, MarketSnapshot> = {
+    BTC: useMarketSimulator(MARKETS[0], anchorPrice("BTC")),
+    ETH: useMarketSimulator(MARKETS[1], anchorPrice("ETH")),
+    SOL: useMarketSimulator(MARKETS[2], anchorPrice("SOL")),
+    XRP: useMarketSimulator(MARKETS[3], anchorPrice("XRP")),
+    DOGE: useMarketSimulator(MARKETS[4], anchorPrice("DOGE")),
+  };
 
   useEffect(() => {
     let cancelled = false;

@@ -43,9 +43,9 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden px-4 pb-24 pt-16 sm:px-6 sm:pt-24 lg:px-8">
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-        <div className="absolute -left-40 -top-56 h-[620px] w-[620px] animate-drift-1 rounded-full bg-violet-500/30 blur-[90px] motion-reduce:animate-none" />
-        <div className="absolute -right-44 -top-36 h-[560px] w-[560px] animate-drift-2 rounded-full bg-sky-400/25 blur-[90px] motion-reduce:animate-none" />
-        <div className="absolute left-[28%] top-32 h-[520px] w-[520px] animate-drift-3 rounded-full bg-emerald-400/20 blur-[90px] motion-reduce:animate-none" />
+        <div className="absolute -left-32 -top-24 h-[420px] w-[420px] animate-drift-1 rounded-full bg-violet-500/15 blur-[100px] motion-reduce:animate-none" />
+        <div className="absolute -right-20 top-0 h-[400px] w-[400px] animate-drift-2 rounded-full bg-sky-400/15 blur-[100px] motion-reduce:animate-none" />
+        <div className="absolute left-1/3 top-[380px] h-[420px] w-[420px] animate-drift-3 rounded-full bg-emerald-400/15 blur-[100px] motion-reduce:animate-none" />
       </div>
 
       <div className="relative mx-auto grid max-w-7xl gap-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-10">
