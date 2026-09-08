@@ -18,6 +18,10 @@ export interface PositionWithPnl extends Position {
   pnlPercent: number;
 }
 
+const STORAGE_KEY = "finalboss:positions";
+/** Open positions are always kept; only closed history is trimmed. */
+const MAX_STORED_HISTORY = 200;
+
 /**
  * Each position is marked against its own market's price (via
  * position.marketId), never against whichever market the UI currently has
@@ -26,12 +30,42 @@ export interface PositionWithPnl extends Position {
  */
 export function usePositions(markets: Record<MarketId, MarketSnapshot>) {
   const [positions, setPositions] = useState<Position[]>([]);
+  const [restored, setRestored] = useState(false);
   const [prevMarkets, setPrevMarkets] = useState(markets);
   const marketsRef = useRef(markets);
 
   useEffect(() => {
     marketsRef.current = markets;
   }, [markets]);
+
+  // Read after mount (never during render) so the server-rendered HTML and
+  // the hydration pass agree - same reason OnboardingContext defers its own
+  // localStorage read.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) setPositions(JSON.parse(raw) as Position[]);
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+      setRestored(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Gated on `restored` so the empty initial state can't overwrite stored
+  // positions before the read above has run.
+  useEffect(() => {
+    if (!restored) return;
+    const open = positions.filter((p) => p.status === "open");
+    const closed = positions.filter((p) => p.status !== "open").slice(0, MAX_STORED_HISTORY);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...open, ...closed]));
+    } catch {
+      // Storage full or blocked - the session still works from memory.
+    }
+  }, [positions, restored]);
 
   const open = useCallback((params: ExecuteOrderParams) => {
     const size = calcPositionSize(params.margin, params.leverage, params.entryPrice);

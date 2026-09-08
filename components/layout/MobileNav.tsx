@@ -21,6 +21,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
   const { isOnboarded, profile } = useOnboarding();
+  const navLinks = NAV_LINKS.filter((link) => !(isOnboarded && link.href === "/signup"));
 
   if (!isOpen) return null;
 
@@ -55,7 +56,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </div>
 
         <nav className="flex flex-col gap-1">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}

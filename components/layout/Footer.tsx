@@ -1,30 +1,22 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 
+// Only real destinations belong here. Docs/API/Status/socials were dead
+// href="#" placeholders - they go back once there's something to link to.
 const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
   Product: [
     { label: "Trade", href: "/terminal" },
     { label: "Affiliates", href: "/affiliates" },
     { label: "Sign Up", href: "/signup" },
   ],
-  Resources: [
-    { label: "Terms", href: "/terms" },
-    { label: "Documentation", href: "#" },
-    { label: "API", href: "#" },
-    { label: "Status", href: "#" },
-  ],
-  Community: [
-    { label: "Discord", href: "#" },
-    { label: "X / Twitter", href: "#" },
-    { label: "Blog", href: "#" },
-  ],
+  Resources: [{ label: "Terms", href: "/terms" }],
 };
 
 export function Footer() {
   return (
     <footer className="border-t border-white/5 bg-base-950">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
           <div className="col-span-2 sm:col-span-1">
             <Link href="/" className="flex items-center gap-2 text-white">
               <Logo className="h-8 w-8" />

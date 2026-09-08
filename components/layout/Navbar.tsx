@@ -20,6 +20,8 @@ export function Navbar() {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
   const { isOnboarded, profile } = useOnboarding();
+  // A signed-in account has nothing to sign up for.
+  const navLinks = NAV_LINKS.filter((link) => !(isOnboarded && link.href === "/signup"));
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-base-950/80 backdrop-blur-xl">
@@ -30,7 +32,7 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
