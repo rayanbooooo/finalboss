@@ -1,6 +1,7 @@
 "use client";
 
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useToast } from "@/contexts/ToastContext";
 import { formatCurrency, formatPercent, formatPrice } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 export function OpenPositionsTable() {
   const { openPositions, closePosition } = useTerminal();
+  const { toast } = useToast();
 
   if (openPositions.length === 0) {
     return (
@@ -64,7 +66,18 @@ export function OpenPositionsTable() {
                 {formatCurrency(position.pnl)} ({formatPercent(position.pnlPercent)})
               </td>
               <td className="px-4 py-3">
-                <Button variant="outline" size="sm" onClick={() => closePosition(position.id)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    closePosition(position.id);
+                    toast({
+                      variant: profit ? "success" : "warning",
+                      title: `${position.symbol} position closed`,
+                      description: `${profit ? "Profit" : "Loss"} of ${formatCurrency(Math.abs(position.pnl))} at ${formatPrice(position.markPrice)}.`,
+                    });
+                  }}
+                >
                   Close
                 </Button>
               </td>

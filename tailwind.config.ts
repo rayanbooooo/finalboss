@@ -2,9 +2,13 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: "class",
+  // Any directory that renders JSX has to be listed here. A missing path
+  // fails silently: the classes simply never get generated, so the element
+  // renders unstyled rather than erroring.
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./contexts/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {

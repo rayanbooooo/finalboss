@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useToast } from "@/contexts/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface FundingFormProps {
 
 export function FundingForm({ mode, onDone }: FundingFormProps) {
   const { availableBalance, deposit, withdraw } = useTerminal();
+  const { toast } = useToast();
   const [amount, setAmount] = useState(1000);
   const [done, setDone] = useState(false);
 
@@ -27,6 +29,11 @@ export function FundingForm({ mode, onDone }: FundingFormProps) {
     if (invalid) return;
     if (isWithdrawal) withdraw(amount);
     else deposit(amount);
+    toast({
+      variant: "success",
+      title: isWithdrawal ? "Withdrawal complete" : "Deposit complete",
+      description: `${formatCurrency(amount)} of demo funds ${isWithdrawal ? "withdrawn from" : "added to"} your balance.`,
+    });
     setDone(true);
     setTimeout(onDone, CLOSE_DELAY_MS);
   };

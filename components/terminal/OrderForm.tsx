@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button } from "@/components/ui/Button";
 import { calcLiquidationPrice, calcPositionSize } from "@/lib/calculations";
@@ -19,6 +20,7 @@ export function OrderForm() {
   const bestBid = market.orderbook.bids[0];
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
+  const { toast } = useToast();
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(profile?.defaultLeverage ?? 10);
   const [margin, setMargin] = useState(1000);
@@ -44,6 +46,11 @@ export function OrderForm() {
       leverage,
       margin,
       entryPrice: market.price,
+    });
+    toast({
+      variant: "success",
+      title: "Order filled",
+      description: `${side === "long" ? "Long" : "Short"} ${market.symbol} at ${formatPrice(market.price)} with ${leverage}x on ${formatCurrency(margin)} margin.`,
     });
     setJustExecuted(true);
     setTimeout(() => setJustExecuted(false), EXECUTED_LABEL_MS);

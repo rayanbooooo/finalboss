@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useToast } from "@/contexts/ToastContext";
+import { formatCurrency, formatPrice } from "@/lib/format";
 import { usePositions, type PositionWithPnl } from "@/hooks/usePositions";
 import { useFunding, type FundingTransaction } from "@/hooks/useFunding";
 import type { MarketSnapshot } from "@/types/market";
@@ -46,6 +48,28 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const { transactions, netFunding, deposit, withdraw } = useFunding(userId);
   const [positionsTab, setPositionsTab] = useState<PositionsTab>("open");
   const [fundingMode, setFundingMode] = useState<FundingMode>(null);
+  const { toast } = useToast();
+
+  // A liquidation happens on its own, with no click behind it - without this
+  // a position could vanish and take the margin with it silently.
+  const announcedRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    // First pass just records what already existed (restored from storage or
+    // the database), so old liquidations don't announce themselves on load.
+    if (announcedRef.current === null) {
+      announcedRef.current = new Set(history.map((p) => p.id));
+      return;
+    }
+    history.forEach((position) => {
+      if (position.status !== "liquidated" || announcedRef.current!.has(position.id)) return;
+      announcedRef.current!.add(position.id);
+      toast({
+        variant: "error",
+        title: `${position.symbol} position liquidated`,
+        description: `Liquidated at ${formatPrice(position.liquidationPrice)}. Margin of ${formatCurrency(position.margin)} was lost.`,
+      });
+    });
+  }, [history, toast]);
 
   // Derived rather than stored: funding in, minus what's locked as margin,
   // plus whatever closed positions realised. A stored balance could drift
