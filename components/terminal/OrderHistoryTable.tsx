@@ -1,24 +1,40 @@
 "use client";
 
+import { useState } from "react";
+import { Receipt } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { formatCurrency, formatPrice, formatTimestamp } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { CryptoIcon } from "@/components/ui/CryptoIcon";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { getMarketConfig } from "@/lib/markets";
 import { cn } from "@/lib/utils";
 
+const PAGE_SIZE = 10;
+
 export function OrderHistoryTable() {
   const { history } = useTerminal();
+  const [page, setPage] = useState(1);
+
+  const pageCount = Math.max(1, Math.ceil(history.length / PAGE_SIZE));
+  // Closing the last position on the final page would otherwise strand the
+  // view on a page that no longer exists.
+  const safePage = Math.min(page, pageCount);
+  const visible = history.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   if (history.length === 0) {
     return (
-      <div className="px-4 py-10 text-center text-sm text-white/40 sm:px-6">
-        No closed positions yet.
-      </div>
+      <EmptyState
+        icon={Receipt}
+        title="No closed positions yet"
+        description="Positions you close or that get liquidated will show up here with their realised result."
+      />
     );
   }
 
   return (
+    <>
     <table className="w-full min-w-[720px] text-left text-sm">
       <thead>
         <tr className="border-b border-white/5 text-xs text-white/40">
@@ -33,7 +49,7 @@ export function OrderHistoryTable() {
         </tr>
       </thead>
       <tbody>
-        {history.map((position) => {
+        {visible.map((position) => {
           const pnl = position.realizedPnl ?? 0;
           const profit = pnl >= 0;
           const config = getMarketConfig(position.marketId);
@@ -73,5 +89,14 @@ export function OrderHistoryTable() {
         })}
       </tbody>
     </table>
+
+    <Pagination
+      page={safePage}
+      pageCount={pageCount}
+      totalItems={history.length}
+      pageSize={PAGE_SIZE}
+      onPageChange={setPage}
+    />
+    </>
   );
 }

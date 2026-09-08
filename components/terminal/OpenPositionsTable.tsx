@@ -1,7 +1,9 @@
 "use client";
 
+import { CandlestickChart } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useToast } from "@/contexts/ToastContext";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCurrency, formatPercent, formatPrice } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -15,9 +17,11 @@ export function OpenPositionsTable() {
 
   if (openPositions.length === 0) {
     return (
-      <div className="px-4 py-10 text-center text-sm text-white/40 sm:px-6">
-        No open positions yet. Place a trade to get started.
-      </div>
+      <EmptyState
+        icon={CandlestickChart}
+        title="No open positions"
+        description="Place an order from the panel on the right and it will appear here, marked live against its own market."
+      />
     );
   }
 
