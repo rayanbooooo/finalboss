@@ -7,7 +7,8 @@ import { connectMultiMarketFeed, fetchHistoricalCandles } from "@/lib/liveMarket
 import { nextCandle } from "@/lib/marketSimulator";
 import { MARKETS, type MarketId } from "@/lib/markets";
 
-const CONNECT_TIMEOUT_MS = 6000;
+const CONNECT_TIMEOUT_MS = 8000;
+const RECONNECT_DELAY_MS = 12_000;
 const MAX_LIVE_TRADES = 40;
 const LIVE_CANDLE_INTERVAL_MS = 60_000;
 
@@ -83,9 +84,25 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     let cancelled = false;
     let closeSocket: (() => void) | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const receivedFor = new Set<string>();
+    let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let receivedFor = new Set<string>();
+
+    // A single failed/dropped connection attempt used to strand the whole
+    // session in the simulator permanently (the connect effect only ran
+    // once on mount). A flaky mobile network can easily miss the initial
+    // handshake window without ever being unreachable - so keep retrying
+    // in the background instead of giving up after one try.
+    function scheduleReconnect() {
+      if (cancelled || reconnectTimeoutId) return;
+      reconnectTimeoutId = setTimeout(() => {
+        reconnectTimeoutId = null;
+        start();
+      }, RECONNECT_DELAY_MS);
+    }
 
     async function start() {
+      receivedFor = new Set<string>();
+
       const results = await Promise.allSettled(
         MARKETS.map((m) => fetchHistoricalCandles(m.coinbaseProductId, 300))
       );
@@ -160,10 +177,12 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
         onError: () => {
           if (cancelled) return;
           setLive(markAllOffline);
+          scheduleReconnect();
         },
         onClose: () => {
           if (cancelled) return;
           setLive(markAllOffline);
+          scheduleReconnect();
         },
       });
     }
@@ -173,6 +192,7 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     return () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
       closeSocket?.();
     };
   }, []);

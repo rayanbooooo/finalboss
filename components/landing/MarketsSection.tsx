@@ -7,10 +7,12 @@ import { CryptoIcon } from "@/components/ui/CryptoIcon";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Reveal } from "@/components/ui/Reveal";
 import { MARKETS } from "@/lib/markets";
+import { calcSma } from "@/lib/calculations";
 import { formatPercent, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const SPARK_WINDOW = 30;
+const SPARK_WINDOW = 60;
+const SPARK_SMOOTHING_PERIOD = 6;
 
 export function MarketsSection() {
   const { markets } = useGlobalMarketFeed();
@@ -42,7 +44,10 @@ export function MarketsSection() {
           {MARKETS.map((config, index) => {
             const snapshot = markets[config.id];
             const positive = snapshot.change24hPct >= 0;
-            const sparkValues = snapshot.candles.slice(-SPARK_WINDOW).map((c) => c.close);
+            const recentCandles = snapshot.candles.slice(-SPARK_WINDOW);
+            const sparkValues = calcSma(recentCandles, SPARK_SMOOTHING_PERIOD).filter(
+              (value): value is number => value !== null
+            );
 
             return (
               <Reveal key={config.id} delay={index * 0.05}>
