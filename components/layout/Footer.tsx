@@ -8,6 +8,7 @@ const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
     { label: "Sign Up", href: "/signup" },
   ],
   Resources: [
+    { label: "Terms", href: "/terms" },
     { label: "Documentation", href: "#" },
     { label: "API", href: "#" },
     { label: "Status", href: "#" },

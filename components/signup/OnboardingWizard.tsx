@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Mail } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Tabs } from "@/components/ui/Tabs";
@@ -280,9 +281,14 @@ export function OnboardingWizard() {
             />
             <span>
               I agree to the{" "}
-              <a href="#" className="text-violet-300 hover:underline">
+              <Link
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-violet-300 hover:underline"
+              >
                 Terms of Service
-              </a>{" "}
+              </Link>{" "}
               and acknowledge the risks of high-leverage trading.
             </span>
           </label>
