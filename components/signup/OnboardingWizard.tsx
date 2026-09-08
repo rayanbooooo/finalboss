@@ -13,6 +13,7 @@ import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { SuccessState } from "@/components/signup/SuccessState";
 import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { truncateAddress } from "@/lib/format";
 import type { ExperienceLevel, OnboardingMethod, RiskTolerance } from "@/types/onboarding";
 import { cn } from "@/lib/utils";
@@ -148,6 +149,13 @@ export function OnboardingWizard() {
 
       {step === 1 && (
         <div className="flex flex-col gap-4">
+          {!isSupabaseConfigured && (
+            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+              No backend is connected on this deployment, so your account and
+              trades are saved in this browser only.
+            </p>
+          )}
+
           <Tabs
             items={METHOD_TABS}
             value={method}

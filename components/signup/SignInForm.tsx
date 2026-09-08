@@ -7,6 +7,7 @@ import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,6 +38,13 @@ export function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-md flex-col gap-4">
+      {!isSupabaseConfigured && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          Accounts aren&apos;t connected to a backend on this deployment, so
+          signing in is unavailable.
+        </p>
+      )}
+
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white/70">
           Email address
