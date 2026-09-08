@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { useMarketSimulator } from "@/hooks/useMarketSimulator";
+import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { usePositions, type PositionWithPnl } from "@/hooks/usePositions";
 import type { MarketSnapshot } from "@/types/market";
 import type { ExecuteOrderParams, Position } from "@/types/trading";
@@ -17,7 +17,7 @@ interface TerminalContextValue {
 const TerminalContext = createContext<TerminalContextValue | null>(null);
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
-  const market = useMarketSimulator();
+  const market = useGlobalMarketFeed();
   const { openPositions, history, open, close } = usePositions(market.price);
 
   const value: TerminalContextValue = {

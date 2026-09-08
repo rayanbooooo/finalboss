@@ -34,4 +34,7 @@ export interface MarketSnapshot {
   high24h: number;
   low24h: number;
   volume24h: number;
+  /** True when price/orderbook/trades come from the real Coinbase feed
+   * rather than the client-side simulator (e.g. feed unreachable). */
+  isLive: boolean;
 }

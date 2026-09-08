@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
-import { useWallet } from "@/contexts/WalletContext";
+import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
 import { cn } from "@/lib/utils";
@@ -14,8 +15,8 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
-  const { status, openModal } = useWallet();
-  const connected = status === "connected";
+  const { isConnected } = useAccount();
+  const { open: openWalletModal } = useWalletModal();
 
   if (!isOpen) return null;
 
@@ -58,10 +59,10 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
-          {connected ? (
+          {isConnected ? (
             <ConnectedBadge />
           ) : (
-            <Button variant="outline" size="lg" onClick={openModal} className="w-full">
+            <Button variant="outline" size="lg" onClick={openWalletModal} className="w-full">
               Connect Wallet
             </Button>
           )}

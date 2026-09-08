@@ -18,12 +18,12 @@ export function StatsCounter({ label, seed, prefix = "", nudgeMax = 0 }: StatsCo
   });
 
   return (
-    <div className="text-center">
-      <div className="font-mono text-3xl font-bold text-white sm:text-4xl">
+    <div>
+      <div className="font-mono text-xs uppercase tracking-wide text-white/40">{label}</div>
+      <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-white sm:text-4xl">
         {prefix}
         {formatCompactNumber(value)}
       </div>
-      <div className="mt-2 text-sm text-white/50">{label}</div>
     </div>
   );
 }

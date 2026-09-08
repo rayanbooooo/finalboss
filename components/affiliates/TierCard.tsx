@@ -1,15 +1,16 @@
 import { Check } from "lucide-react";
 import type { AffiliateTier } from "@/types/affiliate";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 
 export function TierCard({ tier }: { tier: AffiliateTier }) {
   return (
-    <GlassCard
+    <div
       className={cn(
-        "flex flex-col p-6",
-        tier.recommended && "border-violet-500/50 shadow-glow-violet"
+        "flex flex-col rounded-2xl border p-6 transition-colors duration-300",
+        tier.recommended
+          ? "border-violet-500/40 bg-violet-500/[0.04] shadow-glow-violet"
+          : "border-white/[0.07] bg-white/[0.02] hover:border-white/15"
       )}
     >
       {tier.recommended && (
@@ -19,7 +20,7 @@ export function TierCard({ tier }: { tier: AffiliateTier }) {
       )}
       <h3 className="text-lg font-semibold text-white">{tier.name}</h3>
       <p className="mt-1 text-sm text-white/50">{tier.requirement}</p>
-      <div className="mt-4 font-mono text-4xl font-bold text-emerald-400">
+      <div className="mt-4 font-mono text-4xl font-semibold text-emerald-400">
         {tier.commissionPct}%
         <span className="ml-1.5 text-sm font-normal text-white/40">commission</span>
       </div>
@@ -31,6 +32,6 @@ export function TierCard({ tier }: { tier: AffiliateTier }) {
           </li>
         ))}
       </ul>
-    </GlassCard>
+    </div>
   );
 }

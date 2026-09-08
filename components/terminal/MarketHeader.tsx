@@ -17,9 +17,14 @@ export function MarketHeader() {
         </span>
         <div>
           <div className="text-sm font-semibold text-white">{market.symbol}</div>
-          <Badge variant="emerald" className="mt-0.5">
-            <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-emerald-400" />
-            LIVE
+          <Badge variant={market.isLive ? "emerald" : "violet"} className="mt-0.5">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 animate-pulse-glow rounded-full",
+                market.isLive ? "bg-emerald-400" : "bg-violet-400"
+              )}
+            />
+            {market.isLive ? "LIVE" : "SIMULATED"}
           </Badge>
         </div>
       </div>

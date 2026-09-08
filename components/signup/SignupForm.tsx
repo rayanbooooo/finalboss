@@ -3,11 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
+import { useAccount } from "wagmi";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { SuccessState } from "@/components/signup/SuccessState";
-import { useWallet } from "@/contexts/WalletContext";
+import { useWalletModal } from "@/contexts/WalletModalContext";
 
 const TABS = [
   { value: "wallet", label: "Web3 Wallet" },
@@ -24,9 +25,10 @@ export function SignupForm() {
   const [email, setEmail] = useState("");
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [emailDone, setEmailDone] = useState(false);
-  const { status, openModal } = useWallet();
+  const { isConnected } = useAccount();
+  const { open: openWalletModal } = useWalletModal();
 
-  const walletDone = tab === "wallet" && status === "connected";
+  const walletDone = tab === "wallet" && isConnected;
   const done = walletDone || emailDone;
 
   useEffect(() => {
@@ -64,11 +66,11 @@ export function SignupForm() {
           <Button
             variant="primary"
             size="lg"
-            disabled={!agreed || status === "connecting"}
-            onClick={openModal}
+            disabled={!agreed}
+            onClick={openWalletModal}
             className="w-full"
           >
-            {status === "connecting" ? <Spinner className="h-5 w-5" /> : "Connect Wallet"}
+            Connect Wallet
           </Button>
         </div>
       ) : (

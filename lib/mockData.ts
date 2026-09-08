@@ -1,17 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  Zap,
-  ShieldCheck,
-  Layers,
-  Gauge,
-  Ghost,
-  Link2,
-  Wallet,
-  Users,
-  Rocket,
-  BadgeDollarSign,
-} from "lucide-react";
-import type { WalletOption } from "@/types/wallet";
+import { Zap, ShieldCheck, Layers, Gauge, Rocket, BadgeDollarSign } from "lucide-react";
 import type { AffiliateTier } from "@/types/affiliate";
 
 export interface NavLink {
@@ -103,30 +91,6 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   },
 ];
 
-export const WALLET_OPTIONS: WalletOption[] = [
-  {
-    id: "metamask",
-    name: "MetaMask",
-    description: "Connect using browser wallet",
-  },
-  {
-    id: "phantom",
-    name: "Phantom",
-    description: "Multi-chain wallet",
-  },
-  {
-    id: "walletconnect",
-    name: "WalletConnect",
-    description: "Scan with any mobile wallet",
-  },
-];
-
-export const WALLET_ICONS: Record<string, LucideIcon> = {
-  metamask: Wallet,
-  phantom: Ghost,
-  walletconnect: Link2,
-};
-
 export const AFFILIATE_TIERS: AffiliateTier[] = [
   {
     id: "bronze",
@@ -165,5 +129,3 @@ export const AFFILIATE_STATS_SEED = {
   activeAffiliates: 6_230,
   avgCommission: 320,
 };
-
-export const ICONS = { Users, Wallet };

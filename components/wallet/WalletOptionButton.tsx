@@ -1,47 +1,36 @@
 "use client";
 
-import { Check } from "lucide-react";
-import type { WalletId, WalletOption } from "@/types/wallet";
-import { WALLET_ICONS } from "@/lib/mockData";
+import { Wallet } from "lucide-react";
+import type { Connector } from "wagmi";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/utils";
 
 interface WalletOptionButtonProps {
-  option: WalletOption;
-  status: "idle" | "connecting" | "connected";
-  isActive: boolean;
-  onClick: (id: WalletId) => void;
+  connector: Connector;
+  pending: boolean;
+  onClick: () => void;
 }
 
-export function WalletOptionButton({
-  option,
-  status,
-  isActive,
-  onClick,
-}: WalletOptionButtonProps) {
-  const Icon = WALLET_ICONS[option.id];
-  const connecting = isActive && status === "connecting";
-  const connected = isActive && status === "connected";
-
+export function WalletOptionButton({ connector, pending, onClick }: WalletOptionButtonProps) {
   return (
     <button
       type="button"
-      onClick={() => onClick(option.id)}
-      disabled={status === "connecting"}
-      className={cn(
-        "flex min-h-14 w-full items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-colors hover:bg-white/10 disabled:opacity-50",
-        connected && "border-emerald-500/40 bg-emerald-500/10"
-      )}
+      onClick={onClick}
+      disabled={pending}
+      className="flex min-h-14 w-full items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-colors hover:bg-white/10 disabled:opacity-50"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-violet-300">
-        <Icon className="h-5 w-5" />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/10 text-violet-300">
+        {connector.icon ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small inline data-URI icon from the wallet extension, not a fetched asset
+          <img src={connector.icon} alt="" className="h-6 w-6" />
+        ) : (
+          <Wallet className="h-5 w-5" />
+        )}
       </span>
       <span className="flex-1">
-        <span className="block text-sm font-medium text-white">{option.name}</span>
-        <span className="block text-xs text-white/50">{option.description}</span>
+        <span className="block text-sm font-medium text-white">{connector.name}</span>
       </span>
-      {connecting && <Spinner className="h-5 w-5 text-violet-300" />}
-      {connected && <Check className="h-5 w-5 text-emerald-400" />}
+      {pending && <Spinner className="h-5 w-5 text-violet-300" />}
     </button>
   );
 }

@@ -3,17 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, TrendingUp } from "lucide-react";
+import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
-import { useWallet } from "@/contexts/WalletContext";
+import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { LiveTicker } from "@/components/layout/LiveTicker";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { status, openModal } = useWallet();
-  const connected = status === "connected";
+  const { isConnected } = useAccount();
+  const { open: openWalletModal } = useWalletModal();
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-base-950/80 backdrop-blur-xl">
@@ -37,11 +39,13 @@ export function Navbar() {
           ))}
         </nav>
 
+        <LiveTicker />
+
         <div className="hidden items-center gap-3 md:flex">
-          {connected ? (
+          {isConnected ? (
             <ConnectedBadge />
           ) : (
-            <Button variant="outline" size="md" onClick={openModal}>
+            <Button variant="outline" size="md" onClick={openWalletModal}>
               Connect Wallet
             </Button>
           )}

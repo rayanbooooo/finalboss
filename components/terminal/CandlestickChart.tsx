@@ -3,17 +3,25 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import type { Candle } from "@/types/market";
 import { formatCurrency, formatTimestamp } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface CandlestickChartProps {
   candles: Candle[];
   currentPrice: number;
+  heightClassName?: string;
+  interactive?: boolean;
 }
 
 const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 380;
 const PADDING_Y = 20;
 
-export function CandlestickChart({ candles, currentPrice }: CandlestickChartProps) {
+export function CandlestickChart({
+  candles,
+  currentPrice,
+  heightClassName = "h-[260px] sm:h-[380px]",
+  interactive = true,
+}: CandlestickChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const { min, max, candleWidth, gap } = useMemo(() => {
@@ -59,9 +67,9 @@ export function CandlestickChart({ candles, currentPrice }: CandlestickChartProp
       <svg
         viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
         preserveAspectRatio="none"
-        className="h-[260px] w-full touch-none sm:h-[380px]"
-        onMouseMove={handleMove}
-        onMouseLeave={() => setHoverIndex(null)}
+        className={cn("w-full touch-none", heightClassName)}
+        onMouseMove={interactive ? handleMove : undefined}
+        onMouseLeave={interactive ? () => setHoverIndex(null) : undefined}
       >
         <defs>
           <filter id="chart-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -142,7 +150,7 @@ export function CandlestickChart({ candles, currentPrice }: CandlestickChartProp
         {formatCurrency(currentPrice)}
       </div>
 
-      {hovered && (
+      {interactive && hovered && (
         <div className="pointer-events-none absolute left-2 top-2 rounded-lg border border-white/10 bg-base-900/90 px-3 py-2 font-mono text-xs text-white/80 shadow-xl">
           <div>{formatTimestamp(hovered.time)}</div>
           <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">

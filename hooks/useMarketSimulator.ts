@@ -91,5 +91,6 @@ export function useMarketSimulator(): MarketSnapshot {
     high24h,
     low24h,
     volume24h,
+    isLive: false,
   };
 }
