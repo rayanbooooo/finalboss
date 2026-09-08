@@ -206,7 +206,10 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
           status: "liquidated" as const,
           closedAt: Date.now(),
           closePrice: p.liquidationPrice,
-          realizedPnl: -p.margin,
+          // Derived from the price it actually liquidated at, so the close
+          // price and the recorded loss agree. Hardcoding -margin claimed a
+          // bigger loss than the stated close price implies.
+          realizedPnl: calcPnl(p.entryPrice, p.liquidationPrice, p.size, p.side),
         };
       });
       return changed ? next : prev;

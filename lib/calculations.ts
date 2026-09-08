@@ -21,18 +21,25 @@ export function calcSma(candles: Candle[], period = SMA_PERIOD): (number | null)
  * partial liquidation) — good enough to drive a convincing UI, not a real
  * risk engine.
  */
-const MAINTENANCE_MARGIN_RATIO = 0.005;
+/**
+ * The maintenance buffer is a share of the position's own margin, not a flat
+ * fraction of price. A fixed ratio breaks down as leverage rises: at 200x it
+ * equals the initial margin ratio, which puts the liquidation price exactly
+ * on the entry price and liquidates the position the moment it opens, and
+ * past that it crosses to the wrong side of entry entirely. Expressing it as
+ * a share keeps liquidation at a consistent 95% loss of margin at every
+ * leverage, and leaves the common cases (10x and below) unchanged.
+ */
+const MAINTENANCE_MARGIN_SHARE = 0.05;
 
 export function calcLiquidationPrice(
   entryPrice: number,
   leverage: number,
   side: OrderSide
 ): number {
-  const marginRatio = 1 / leverage;
-  if (side === "long") {
-    return entryPrice * (1 - marginRatio + MAINTENANCE_MARGIN_RATIO);
-  }
-  return entryPrice * (1 + marginRatio - MAINTENANCE_MARGIN_RATIO);
+  // Distance from entry to liquidation, as a fraction of price.
+  const move = (1 / leverage) * (1 - MAINTENANCE_MARGIN_SHARE);
+  return side === "long" ? entryPrice * (1 - move) : entryPrice * (1 + move);
 }
 
 export function calcPositionSize(
