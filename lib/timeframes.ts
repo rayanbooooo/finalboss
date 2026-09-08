@@ -3,14 +3,18 @@ import type { Candle } from "@/types/market";
 export interface Timeframe {
   label: string;
   bucketMs: number;
+  /** Which candle series (MarketSnapshot.candles vs .longRangeCandles) this
+   * timeframe aggregates from - fine-grained minute bars can't show days of
+   * real history, so 1H/4H source from the coarser, longer-history series. */
+  source: "fine" | "coarse";
 }
 
 export const TIMEFRAMES: Timeframe[] = [
-  { label: "1m", bucketMs: 60_000 },
-  { label: "5m", bucketMs: 5 * 60_000 },
-  { label: "15m", bucketMs: 15 * 60_000 },
-  { label: "1H", bucketMs: 60 * 60_000 },
-  { label: "4H", bucketMs: 4 * 60 * 60_000 },
+  { label: "1m", bucketMs: 60_000, source: "fine" },
+  { label: "5m", bucketMs: 5 * 60_000, source: "fine" },
+  { label: "15m", bucketMs: 15 * 60_000, source: "fine" },
+  { label: "1H", bucketMs: 60 * 60_000, source: "coarse" },
+  { label: "4H", bucketMs: 4 * 60 * 60_000, source: "coarse" },
 ];
 
 export const DEFAULT_TIMEFRAME = TIMEFRAMES[0];

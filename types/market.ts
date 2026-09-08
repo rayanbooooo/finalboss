@@ -29,6 +29,10 @@ export interface MarketSnapshot {
   symbol: string;
   price: number;
   candles: Candle[];
+  /** Coarser, longer-history candle series (hourly-granularity) used for the
+   * 1H/4H timeframes so they show real multi-day depth instead of
+   * aggregating the same few hours of `candles` down to 1-2 bars. */
+  longRangeCandles: Candle[];
   orderbook: OrderBookSnapshot;
   trades: Trade[];
   change24hPct: number;

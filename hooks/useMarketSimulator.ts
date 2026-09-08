@@ -20,6 +20,10 @@ const ORDERBOOK_TICK_MS = 1500;
 const TRADE_TICK_MS = 900;
 const MAX_TRADES = 40;
 const VOLUME_BASELINE_FACTOR = 2650;
+// Matches the real feed's coarse Coinbase granularity (3600s) so the
+// SIMULATED fallback's 1H/4H timeframes have the same plausible depth as
+// the LIVE path, not just an aggregation of the fine-grained series.
+const LONG_RANGE_INTERVAL_MS = 60 * 60_000;
 
 /**
  * Client-side fallback engine for one market, used whenever its real feed
@@ -44,6 +48,9 @@ export function useMarketSimulator(
   const { symbol, seedPrice } = config;
   const [price, setPrice] = useState(seedPrice);
   const [candles, setCandles] = useState<Candle[]>(() => createFlatCandles(300, seedPrice));
+  const [longRangeCandles, setLongRangeCandles] = useState<Candle[]>(() =>
+    createFlatCandles(300, seedPrice, LONG_RANGE_INTERVAL_MS)
+  );
   const [orderbook, setOrderbook] = useState<OrderBookSnapshot>(() =>
     createFlatOrderBook(seedPrice)
   );
@@ -68,6 +75,7 @@ export function useMarketSimulator(
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       setCandles(generateInitialCandles(300, seedPrice));
+      setLongRangeCandles(generateInitialCandles(300, seedPrice, LONG_RANGE_INTERVAL_MS));
       setOrderbook(generateOrderBook(seedPrice));
     });
     return () => cancelAnimationFrame(raf);
@@ -84,6 +92,7 @@ export function useMarketSimulator(
     const raf = requestAnimationFrame(() => {
       setPrice(realAnchorPrice);
       setCandles(generateInitialCandles(300, realAnchorPrice));
+      setLongRangeCandles(generateInitialCandles(300, realAnchorPrice, LONG_RANGE_INTERVAL_MS));
     });
     return () => cancelAnimationFrame(raf);
   }, [realAnchorPrice]);
@@ -91,6 +100,7 @@ export function useMarketSimulator(
   if (price !== prevPrice) {
     setPrevPrice(price);
     setCandles((prev) => nextCandle(prev, price, CANDLE_INTERVAL_MS));
+    setLongRangeCandles((prev) => nextCandle(prev, price, LONG_RANGE_INTERVAL_MS));
   }
 
   useEffect(() => {
@@ -131,6 +141,7 @@ export function useMarketSimulator(
     symbol,
     price,
     candles,
+    longRangeCandles,
     orderbook,
     trades,
     change24hPct,

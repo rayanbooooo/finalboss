@@ -30,11 +30,11 @@ export function nextTick(prevPrice: number, baselinePrice: number): number {
  */
 const FLAT_CANDLE_ANCHOR_MS = 1_700_000_000_000;
 
-export function createFlatCandles(count: number, price: number): Candle[] {
+export function createFlatCandles(count: number, price: number, intervalMs = 60_000): Candle[] {
   const candles: Candle[] = [];
   for (let i = 0; i < count; i += 1) {
     candles.push({
-      time: FLAT_CANDLE_ANCHOR_MS + i * 60_000,
+      time: FLAT_CANDLE_ANCHOR_MS + i * intervalMs,
       open: price,
       high: price,
       low: price,
@@ -59,11 +59,14 @@ export function createFlatOrderBook(midPrice: number, levels = 12): OrderBookSna
   return { bids, asks };
 }
 
-export function generateInitialCandles(count: number, seedPrice: number): Candle[] {
+export function generateInitialCandles(
+  count: number,
+  seedPrice: number,
+  intervalMs = 60_000
+): Candle[] {
   const candles: Candle[] = [];
   let price = seedPrice;
   const now = Date.now();
-  const intervalMs = 60_000;
 
   for (let i = count - 1; i >= 0; i -= 1) {
     const open = price;

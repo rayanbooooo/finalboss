@@ -13,11 +13,13 @@ type RawCandle = [number, number, number, number, number, number];
 
 export async function fetchHistoricalCandles(
   productId: string,
-  count = 80
+  count = 80,
+  granularitySeconds = 60
 ): Promise<Candle[]> {
-  const res = await fetch(`${REST_BASE}/products/${productId}/candles?granularity=60`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${REST_BASE}/products/${productId}/candles?granularity=${granularitySeconds}`,
+    { cache: "no-store" }
+  );
   if (!res.ok) {
     throw new Error(`Coinbase candles request failed for ${productId}: ${res.status}`);
   }

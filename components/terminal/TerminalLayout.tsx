@@ -26,7 +26,8 @@ export function TerminalLayout() {
   const { market, activeMarketId, openPositions } = useTerminal();
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const [chartExpanded, setChartExpanded] = useState(false);
-  const displayCandles = aggregateCandles(market.candles, timeframe.bucketMs);
+  const sourceCandles = timeframe.source === "coarse" ? market.longRangeCandles : market.candles;
+  const displayCandles = aggregateCandles(sourceCandles, timeframe.bucketMs);
 
   useEffect(() => {
     if (!chartExpanded) return undefined;

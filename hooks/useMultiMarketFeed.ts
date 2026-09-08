@@ -11,11 +11,17 @@ const CONNECT_TIMEOUT_MS = 8000;
 const RECONNECT_DELAY_MS = 12_000;
 const MAX_LIVE_TRADES = 40;
 const LIVE_CANDLE_INTERVAL_MS = 60_000;
+// Coinbase's candles endpoint caps out at 300 bars regardless of
+// granularity, so 300 bars at 1H granularity is the deepest single request
+// can go (~12.5 days) - real history for the 1H/4H timeframe buttons
+// without switching data providers.
+const LONG_RANGE_GRANULARITY_SECONDS = 3600;
 
 interface LiveState {
   isLive: boolean;
   price: number;
   candles: Candle[];
+  longRangeCandles: Candle[];
   orderbook: OrderBookSnapshot;
   trades: Trade[];
   open24h: number;
@@ -29,6 +35,7 @@ function emptyLiveState(): LiveState {
     isLive: false,
     price: 0,
     candles: [],
+    longRangeCandles: [],
     orderbook: { bids: [], asks: [] },
     trades: [],
     open24h: 0,
@@ -111,9 +118,14 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     async function start() {
       receivedFor = new Set<string>();
 
-      const results = await Promise.allSettled(
-        MARKETS.map((m) => fetchHistoricalCandles(m.coinbaseProductId, 300))
-      );
+      const [results, longRangeResults] = await Promise.all([
+        Promise.allSettled(MARKETS.map((m) => fetchHistoricalCandles(m.coinbaseProductId, 300))),
+        Promise.allSettled(
+          MARKETS.map((m) =>
+            fetchHistoricalCandles(m.coinbaseProductId, 300, LONG_RANGE_GRANULARITY_SECONDS)
+          )
+        ),
+      ]);
       if (cancelled) return;
 
       setLive((prev) => {
@@ -123,6 +135,12 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
           if (result.status === "fulfilled") {
             const seedPrice = result.value[result.value.length - 1]?.close ?? market.seedPrice;
             next[market.id] = { ...next[market.id], candles: result.value, price: seedPrice };
+          }
+        });
+        longRangeResults.forEach((result, i) => {
+          const market = MARKETS[i];
+          if (result.status === "fulfilled") {
+            next[market.id] = { ...next[market.id], longRangeCandles: result.value };
           }
         });
         return next;
@@ -215,6 +233,7 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
         symbol: market.symbol,
         price: state.price,
         candles: state.candles,
+        longRangeCandles: state.longRangeCandles,
         orderbook: state.orderbook,
         trades: state.trades,
         change24hPct,
