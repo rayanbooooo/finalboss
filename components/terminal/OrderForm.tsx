@@ -70,7 +70,7 @@ export function OrderForm() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
+      <div data-tour="direction" className="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
         <button
           type="button"
           onClick={() => setSide("long")}
@@ -106,9 +106,7 @@ export function OrderForm() {
         </div>
       )}
 
-      <LeverageSlider leverage={leverage} onChange={setLeverage} />
-
-      <div>
+      <div data-tour="amount">
         <label htmlFor="margin" className="mb-1.5 block text-sm font-medium text-white/70">
           Margin (USDC)
         </label>
@@ -155,6 +153,10 @@ export function OrderForm() {
         </p>
       )}
 
+      <div data-tour="leverage">
+        <LeverageSlider leverage={leverage} onChange={setLeverage} />
+      </div>
+
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
         <Row label="Entry Price" value={formatPrice(market.price)} />
@@ -166,6 +168,7 @@ export function OrderForm() {
       </div>
 
       <Button
+        data-tour="submit"
         variant={side === "long" ? "secondary" : "danger"}
         size="lg"
         onClick={handleExecute}

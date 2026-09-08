@@ -13,6 +13,7 @@ import { MarketPanelTabs } from "@/components/terminal/MarketPanelTabs";
 import { OrderForm } from "@/components/terminal/OrderForm";
 import { BalancesPanel } from "@/components/terminal/BalancesPanel";
 import { PositionsPanel } from "@/components/terminal/PositionsPanel";
+import { GuidedTour } from "@/components/terminal/GuidedTour";
 import { aggregateCandles, DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
@@ -110,6 +111,10 @@ export function TerminalLayout() {
             <PositionsPanel />
           </div>
       </div>
+
+      {/* Mounted here rather than in the route layout: the tour points at
+          elements that only exist on the trading screen. */}
+      {!chartExpanded && <GuidedTour />}
     </div>
   );
 }

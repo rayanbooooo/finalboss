@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, RotateCcw } from "lucide-react";
+import { TOUR_STORAGE_KEY } from "@/components/terminal/GuidedTour";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
@@ -28,6 +30,16 @@ const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
 export function SettingsPanel() {
   const { profile, userId, isResolved, updateProfile, signOut } = useOnboarding();
   const { toast } = useToast();
+  const router = useRouter();
+
+  const replayTour = () => {
+    try {
+      window.localStorage.removeItem(TOUR_STORAGE_KEY);
+    } catch {
+      // The tour runs whenever the flag is absent, so a blocked store is fine.
+    }
+    router.push("/terminal");
+  };
 
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(
@@ -170,6 +182,18 @@ export function SettingsPanel() {
           Default leverage, used as the starting value on every new order.
         </p>
         <LeverageSlider leverage={defaultLeverage} onChange={setDefaultLeverage} />
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <h2 className="text-sm font-semibold text-white">Walkthrough</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-white/55">
+          Replay the guided tour of the trading screen - direction, margin,
+          leverage, placing and closing a position.
+        </p>
+        <Button variant="outline" size="lg" className="mt-4" onClick={replayTour}>
+          <RotateCcw className="h-4 w-4" />
+          Replay walkthrough
+        </Button>
       </section>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">

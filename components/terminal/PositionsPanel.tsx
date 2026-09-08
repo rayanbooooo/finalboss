@@ -14,7 +14,7 @@ export function PositionsPanel() {
   const { openPositions, history, positionsTab, setPositionsTab } = useTerminal();
 
   return (
-    <div id="positions-panel" className="flex flex-col scroll-mt-4">
+    <div id="positions-panel" data-tour="positions" className="flex flex-col scroll-mt-4">
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sm:px-6">
         <Tabs
           items={TABS}
