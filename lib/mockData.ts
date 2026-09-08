@@ -116,8 +116,6 @@ export const AFFILIATE_TIERS: AffiliateTier[] = [
   },
 ];
 
-export const ASSET_SYMBOL = "BTC-PERP";
-
 export const STATS_SEED = {
   totalVolume: 4_820_000_000,
   activeTraders: 128_400,

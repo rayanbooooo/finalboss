@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
 import { useWalletModal } from "@/contexts/WalletModalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface MobileNavProps {
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
+  const { isOnboarded } = useOnboarding();
 
   if (!isOpen) return null;
 
@@ -67,7 +69,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
             </Button>
           )}
           <Link
-            href="/terminal"
+            href={isOnboarded ? "/terminal" : "/signup"}
             onClick={onClose}
             className={cn(buttonVariants("primary", "lg"), "w-full")}
           >

@@ -7,6 +7,17 @@ export function formatCurrency(value: number, decimals = 2): string {
   });
 }
 
+/** Sub-$1 markets (XRP, DOGE, ...) need more decimal places than BTC/ETH to show a meaningful price move. */
+export function priceDecimals(value: number): number {
+  if (value >= 100) return 2;
+  if (value >= 1) return 3;
+  return 4;
+}
+
+export function formatPrice(value: number): string {
+  return formatCurrency(value, priceDecimals(value));
+}
+
 export function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat("en-US", {
     notation: "compact",

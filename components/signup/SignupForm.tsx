@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { SuccessState } from "@/components/signup/SuccessState";
 import { useWalletModal } from "@/contexts/WalletModalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 
 const TABS = [
   { value: "wallet", label: "Web3 Wallet" },
@@ -27,17 +28,19 @@ export function SignupForm() {
   const [emailDone, setEmailDone] = useState(false);
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
+  const { markOnboarded } = useOnboarding();
 
   const walletDone = tab === "wallet" && isConnected;
   const done = walletDone || emailDone;
 
   useEffect(() => {
     if (!done) return undefined;
+    markOnboarded();
     const timeout = setTimeout(() => {
       router.push("/terminal");
     }, REDIRECT_DELAY_MS);
     return () => clearTimeout(timeout);
-  }, [done, router]);
+  }, [done, router, markOnboarded]);
 
   if (done) {
     return <SuccessState />;

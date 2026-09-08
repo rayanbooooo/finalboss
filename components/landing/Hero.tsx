@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/Button";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { calcLiquidationPrice, calcPnl, calcPositionSize } from "@/lib/calculations";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
@@ -18,8 +19,10 @@ const CARD_LEVERAGE = 20;
 const CARD_ENTRY_DISCOUNT = 0.973;
 
 export function Hero() {
-  const market = useGlobalMarketFeed();
+  const { activeMarket: market } = useGlobalMarketFeed();
+  const { isOnboarded } = useOnboarding();
   const positive = market.change24hPct >= 0;
+  const launchHref = isOnboarded ? "/terminal" : "/signup";
 
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(20);
@@ -73,7 +76,7 @@ export function Hero() {
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
-              href="/terminal"
+              href={launchHref}
               className={cn(buttonVariants("primary", "lg"), "w-full sm:w-auto")}
             >
               Launch App <ArrowRight className="h-4 w-4" />
@@ -218,7 +221,7 @@ export function Hero() {
               </div>
 
               <Link
-                href="/terminal"
+                href={launchHref}
                 className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
               >
                 Launch App <ArrowRight className="h-4 w-4" />

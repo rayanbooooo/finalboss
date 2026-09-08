@@ -1,8 +1,10 @@
 "use client";
 
 import { useTerminal } from "@/contexts/TerminalContext";
-import { formatCurrency, formatTimestamp } from "@/lib/format";
+import { formatCurrency, formatPrice, formatTimestamp } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
+import { CryptoIcon } from "@/components/ui/CryptoIcon";
+import { getMarketConfig } from "@/lib/markets";
 import { cn } from "@/lib/utils";
 
 export function OrderHistoryTable() {
@@ -20,7 +22,8 @@ export function OrderHistoryTable() {
     <table className="w-full min-w-[720px] text-left text-sm">
       <thead>
         <tr className="border-b border-white/5 text-xs text-white/40">
-          <th className="px-4 py-3 font-medium sm:px-6">Side</th>
+          <th className="px-4 py-3 font-medium sm:px-6">Market</th>
+          <th className="px-4 py-3 font-medium">Side</th>
           <th className="px-4 py-3 font-medium">Size</th>
           <th className="px-4 py-3 font-medium">Entry Price</th>
           <th className="px-4 py-3 font-medium">Close Price</th>
@@ -33,19 +36,26 @@ export function OrderHistoryTable() {
         {history.map((position) => {
           const pnl = position.realizedPnl ?? 0;
           const profit = pnl >= 0;
+          const config = getMarketConfig(position.marketId);
           return (
             <tr key={position.id} className="border-b border-white/5">
               <td className="px-4 py-3 sm:px-6">
+                <span className="flex items-center gap-2">
+                  <CryptoIcon symbol={config.icon} className="h-5 w-5" />
+                  <span className="font-medium text-white/85">{position.symbol}</span>
+                </span>
+              </td>
+              <td className="px-4 py-3">
                 <Badge variant={position.side === "long" ? "emerald" : "rose"}>
                   {position.side === "long" ? "Long" : "Short"} {position.leverage}x
                 </Badge>
               </td>
               <td className="px-4 py-3 font-mono text-white/80">{position.size.toFixed(4)}</td>
               <td className="px-4 py-3 font-mono text-white/80">
-                {formatCurrency(position.entryPrice)}
+                {formatPrice(position.entryPrice)}
               </td>
               <td className="px-4 py-3 font-mono text-white/80">
-                {position.closePrice ? formatCurrency(position.closePrice) : "—"}
+                {position.closePrice ? formatPrice(position.closePrice) : "—"}
               </td>
               <td className="px-4 py-3">
                 <Badge variant={position.status === "liquidated" ? "rose" : "neutral"}>

@@ -5,14 +5,15 @@ import { useTerminal } from "@/contexts/TerminalContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button } from "@/components/ui/Button";
 import { calcLiquidationPrice, calcPositionSize } from "@/lib/calculations";
-import { formatCurrency } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
 const EXECUTED_LABEL_MS = 1200;
+const QUICK_MARGIN_AMOUNTS = [100, 500, 1000, 5000];
 
 export function OrderForm() {
-  const { market, openPosition } = useTerminal();
+  const { market, activeMarketId, openPosition } = useTerminal();
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(10);
   const [margin, setMargin] = useState(1000);
@@ -29,13 +30,27 @@ export function OrderForm() {
 
   const handleExecute = () => {
     if (margin <= 0) return;
-    openPosition({ symbol: market.symbol, side, leverage, margin, entryPrice: market.price });
+    openPosition({
+      marketId: activeMarketId,
+      symbol: market.symbol,
+      side,
+      leverage,
+      margin,
+      entryPrice: market.price,
+    });
     setJustExecuted(true);
     setTimeout(() => setJustExecuted(false), EXECUTED_LABEL_MS);
   };
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-white">Place Order</span>
+        <span className="rounded-md border border-white/10 px-2 py-0.5 font-mono text-[11px] text-white/50">
+          {leverage}x
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
         <button
           type="button"
@@ -73,14 +88,31 @@ export function OrderForm() {
           onChange={(event) => setMargin(Number(event.target.value))}
           className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white focus:border-violet-500 focus:outline-none"
         />
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
+          {QUICK_MARGIN_AMOUNTS.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => setMargin(amount)}
+              className={cn(
+                "min-h-8 rounded-lg border text-xs font-medium transition-colors",
+                margin === amount
+                  ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                  : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/80"
+              )}
+            >
+              ${amount.toLocaleString("en-US")}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
-        <Row label="Position Size" value={`${size.toFixed(4)} BTC`} />
-        <Row label="Entry Price" value={formatCurrency(market.price)} />
+        <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
+        <Row label="Entry Price" value={formatPrice(market.price)} />
         <Row
           label="Est. Liquidation Price"
-          value={formatCurrency(liquidationPrice)}
+          value={formatPrice(liquidationPrice)}
           valueClassName="text-rose-400"
         />
       </div>

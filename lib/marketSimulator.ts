@@ -1,20 +1,19 @@
 import type { Candle, OrderBookLevel, OrderBookSnapshot, Trade } from "@/types/market";
 import { clamp, generateId, randomBetween, randomInt } from "@/lib/utils";
 
-const BASELINE_PRICE = 68000;
-const MIN_PRICE = BASELINE_PRICE * 0.5;
 const MEAN_REVERSION_STRENGTH = 0.002;
 const MAX_TICK_PCT = 0.0012;
 
 /**
- * Bounded random walk with mild mean-reversion toward BASELINE_PRICE so a
- * long-running demo session never drifts to implausible values.
+ * Bounded random walk with mild mean-reversion toward baselinePrice (each
+ * market's own seed price) so a long-running demo session never drifts to
+ * implausible values.
  */
-export function nextTick(prevPrice: number): number {
-  const reversion = (BASELINE_PRICE - prevPrice) * MEAN_REVERSION_STRENGTH;
+export function nextTick(prevPrice: number, baselinePrice: number): number {
+  const reversion = (baselinePrice - prevPrice) * MEAN_REVERSION_STRENGTH;
   const noise = prevPrice * randomBetween(-MAX_TICK_PCT, MAX_TICK_PCT);
   const next = prevPrice + reversion + noise;
-  return clamp(next, MIN_PRICE, BASELINE_PRICE * 2);
+  return clamp(next, baselinePrice * 0.5, baselinePrice * 2);
 }
 
 /**
@@ -72,7 +71,7 @@ export function generateInitialCandles(count: number, seedPrice: number): Candle
     let close = open;
 
     for (let s = 0; s < 6; s += 1) {
-      close = nextTick(close);
+      close = nextTick(close, seedPrice);
       high = Math.max(high, close);
       low = Math.min(low, close);
     }
@@ -108,7 +107,7 @@ export function nextCandle(
 
   if (elapsed >= intervalMs) {
     const rolled = [...candles, { time: Date.now(), open: last.close, high: price, low: price, close: price }];
-    return rolled.length > 150 ? rolled.slice(rolled.length - 150) : rolled;
+    return rolled.length > 500 ? rolled.slice(rolled.length - 500) : rolled;
   }
 
   const updated: Candle = {

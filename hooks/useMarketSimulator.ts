@@ -12,24 +12,31 @@ import {
   nextCandle,
   nextTick,
 } from "@/lib/marketSimulator";
-import { ASSET_SYMBOL } from "@/lib/mockData";
+import type { MarketConfig } from "@/lib/markets";
 
-const SEED_PRICE = 68000;
 const CANDLE_INTERVAL_MS = 4000;
 const PRICE_TICK_MS = 1200;
 const ORDERBOOK_TICK_MS = 1500;
 const TRADE_TICK_MS = 900;
 const MAX_TRADES = 40;
-const VOLUME_BASELINE = 180_000_000;
+const VOLUME_BASELINE_FACTOR = 2650;
 
-export function useMarketSimulator(): MarketSnapshot {
-  const [price, setPrice] = useState(SEED_PRICE);
-  const [candles, setCandles] = useState<Candle[]>(() => createFlatCandles(80, SEED_PRICE));
+/**
+ * Client-side fallback engine for one market, used whenever its real feed
+ * (hooks/useMultiMarketFeed.ts) is unreachable. `config` is a static entry
+ * from lib/markets.ts - always the same object at a given call site - so
+ * the values it seeds intervals/effects with below never change per call
+ * site and are safe to leave out of those effects' dependency arrays.
+ */
+export function useMarketSimulator(config: MarketConfig): MarketSnapshot {
+  const { symbol, seedPrice } = config;
+  const [price, setPrice] = useState(seedPrice);
+  const [candles, setCandles] = useState<Candle[]>(() => createFlatCandles(300, seedPrice));
   const [orderbook, setOrderbook] = useState<OrderBookSnapshot>(() =>
-    createFlatOrderBook(SEED_PRICE)
+    createFlatOrderBook(seedPrice)
   );
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [volume24h, setVolume24h] = useState(VOLUME_BASELINE);
+  const [volume24h, setVolume24h] = useState(seedPrice * VOLUME_BASELINE_FACTOR);
   const [prevPrice, setPrevPrice] = useState(price);
   const priceRef = useRef(price);
 
@@ -42,10 +49,11 @@ export function useMarketSimulator(): MarketSnapshot {
   // Math.random()-derived output against the server-rendered HTML.
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      setCandles(generateInitialCandles(80, SEED_PRICE));
-      setOrderbook(generateOrderBook(SEED_PRICE));
+      setCandles(generateInitialCandles(300, seedPrice));
+      setOrderbook(generateOrderBook(seedPrice));
     });
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (price !== prevPrice) {
@@ -55,9 +63,10 @@ export function useMarketSimulator(): MarketSnapshot {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPrice((prev) => nextTick(prev));
+      setPrice((prev) => nextTick(prev, seedPrice));
     }, PRICE_TICK_MS);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -82,7 +91,7 @@ export function useMarketSimulator(): MarketSnapshot {
   const low24h = candles.length ? Math.min(...candles.map((c) => c.low)) : price;
 
   return {
-    symbol: ASSET_SYMBOL,
+    symbol,
     price,
     candles,
     orderbook,

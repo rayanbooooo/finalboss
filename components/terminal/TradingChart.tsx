@@ -22,6 +22,15 @@ interface TradingChartProps {
   interactive?: boolean;
   heightClassName?: string;
   showPriceBadge?: boolean;
+  /**
+   * Identifies which logical series `candles` belongs to (e.g. the active
+   * market id). A change here always forces a full setData() + fitContent(),
+   * since two different series (say, switching from BTC to ETH) can
+   * otherwise coincidentally share the same first-candle time and length as
+   * the outgoing one, which would fool the timestamp/length-based
+   * same-dataset heuristic below into only patching the last bar in place.
+   */
+  seriesKey?: string;
 }
 
 function toChartCandle(candle: Candle) {
@@ -41,12 +50,14 @@ export function TradingChart({
   interactive = true,
   heightClassName = "h-[260px] sm:h-[380px]",
   showPriceBadge = true,
+  seriesKey,
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const prevCandleCountRef = useRef(0);
   const prevFirstTimeRef = useRef<number | null>(null);
+  const prevSeriesKeyRef = useRef<string | undefined>(undefined);
   const positionLinesRef = useRef<Map<string, IPriceLine[]>>(new Map());
 
   useEffect(() => {
@@ -93,6 +104,7 @@ export function TradingChart({
     seriesRef.current = series;
     prevCandleCountRef.current = 0;
     prevFirstTimeRef.current = null;
+    prevSeriesKeyRef.current = undefined;
     positionLinesRef.current = new Map();
 
     return () => {
@@ -116,6 +128,7 @@ export function TradingChart({
     // data are both 80 bars, so a length-only check misses that swap.
     const isWholesaleReplacement =
       prevFirstTimeRef.current === null ||
+      seriesKey !== prevSeriesKeyRef.current ||
       first.time !== prevFirstTimeRef.current ||
       candles.length < prevCandleCountRef.current;
 
@@ -128,7 +141,8 @@ export function TradingChart({
 
     prevCandleCountRef.current = candles.length;
     prevFirstTimeRef.current = first.time;
-  }, [candles]);
+    prevSeriesKeyRef.current = seriesKey;
+  }, [candles, seriesKey]);
 
   useEffect(() => {
     const series = seriesRef.current;

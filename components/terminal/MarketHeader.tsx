@@ -1,8 +1,9 @@
 "use client";
 
 import { useTerminal } from "@/contexts/TerminalContext";
-import { formatCompactNumber, formatCurrency, formatPercent } from "@/lib/format";
+import { formatCompactNumber, formatPercent, formatPrice } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
+import { MarketSelector } from "@/components/terminal/MarketSelector";
 import { cn } from "@/lib/utils";
 
 export function MarketHeader() {
@@ -11,13 +12,19 @@ export function MarketHeader() {
 
   return (
     <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-b border-white/5 px-4 py-4 sm:px-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-yellow-500 text-sm font-bold text-white">
-          ₿
-        </span>
-        <div>
-          <div className="text-sm font-semibold text-white">{market.symbol}</div>
-          <Badge variant={market.isLive ? "emerald" : "violet"} className="mt-0.5">
+      <MarketSelector />
+
+      <div>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "font-mono text-2xl font-bold",
+              positive ? "text-emerald-400" : "text-rose-400"
+            )}
+          >
+            {formatPrice(market.price)}
+          </span>
+          <Badge variant={market.isLive ? "emerald" : "violet"}>
             <span
               className={cn(
                 "h-1.5 w-1.5 animate-pulse-glow rounded-full",
@@ -26,12 +33,6 @@ export function MarketHeader() {
             />
             {market.isLive ? "LIVE" : "SIMULATED"}
           </Badge>
-        </div>
-      </div>
-
-      <div>
-        <div className="font-mono text-2xl font-bold text-white">
-          {formatCurrency(market.price)}
         </div>
         <div
           className={cn(
@@ -44,8 +45,8 @@ export function MarketHeader() {
       </div>
 
       <div className="hidden gap-8 text-sm sm:flex">
-        <Stat label="24h High" value={formatCurrency(market.high24h)} />
-        <Stat label="24h Low" value={formatCurrency(market.low24h)} />
+        <Stat label="24h High" value={formatPrice(market.high24h)} />
+        <Stat label="24h Low" value={formatPrice(market.low24h)} />
         <Stat label="24h Volume" value={`$${formatCompactNumber(market.volume24h)}`} />
       </div>
     </div>

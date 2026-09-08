@@ -6,6 +6,7 @@ import { Menu, TrendingUp } from "lucide-react";
 import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
 import { useWalletModal } from "@/contexts/WalletModalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -16,6 +17,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isConnected } = useAccount();
   const { open: openWalletModal } = useWalletModal();
+  const { isOnboarded } = useOnboarding();
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-base-950/80 backdrop-blur-xl">
@@ -49,7 +51,10 @@ export function Navbar() {
               Connect Wallet
             </Button>
           )}
-          <Link href="/terminal" className={cn(buttonVariants("primary", "md"))}>
+          <Link
+            href={isOnboarded ? "/terminal" : "/signup"}
+            className={cn(buttonVariants("primary", "md"))}
+          >
             Start Trading
           </Link>
         </div>

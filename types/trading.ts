@@ -1,9 +1,12 @@
+import type { MarketId } from "@/lib/markets";
+
 export type OrderSide = "long" | "short";
 
 export type PositionStatus = "open" | "closed" | "liquidated";
 
 export interface Position {
   id: string;
+  marketId: MarketId;
   symbol: string;
   side: OrderSide;
   leverage: number;
@@ -19,6 +22,7 @@ export interface Position {
 }
 
 export interface ExecuteOrderParams {
+  marketId: MarketId;
   symbol: string;
   side: OrderSide;
   leverage: number;

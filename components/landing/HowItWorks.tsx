@@ -3,7 +3,11 @@ import { Reveal } from "@/components/ui/Reveal";
 
 export function HowItWorks() {
   return (
-    <section className="px-4 py-20 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute left-1/4 -top-16 h-[400px] w-[400px] animate-drift-1 rounded-full bg-emerald-400/10 blur-[100px] motion-reduce:animate-none" />
+        <div className="absolute -right-24 bottom-10 h-[360px] w-[360px] animate-drift-2 rounded-full bg-violet-500/10 blur-[100px] motion-reduce:animate-none" />
+      </div>
       <div className="mx-auto max-w-6xl">
         <Reveal className="max-w-xl">
           <span className="font-mono text-xs tracking-wide text-violet-400/70">

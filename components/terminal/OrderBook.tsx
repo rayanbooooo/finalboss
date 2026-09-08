@@ -1,7 +1,7 @@
 "use client";
 
 import { useTerminal } from "@/contexts/TerminalContext";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, priceDecimals } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { OrderBookLevel } from "@/types/market";
 
@@ -13,6 +13,7 @@ export function OrderBook() {
 
   return (
     <div className="flex flex-col text-xs">
+      <div className="px-3 pt-3 text-xs font-medium text-white/40">Order Book</div>
       <div className="grid grid-cols-2 gap-x-2 border-b border-white/5 px-3 py-2 text-white/40">
         <span>Price</span>
         <span className="text-right">Size</span>
@@ -56,7 +57,9 @@ function Level({
   return (
     <div className="relative grid grid-cols-2 gap-x-2 px-3 py-1 font-mono">
       <div className={cn("absolute inset-y-0 right-0", barColor)} style={{ width: `${width}%` }} />
-      <span className={cn("relative", textColor)}>{level.price.toFixed(1)}</span>
+      <span className={cn("relative", textColor)}>
+        {level.price.toFixed(priceDecimals(level.price))}
+      </span>
       <span className="relative text-right text-white/70">{level.size.toFixed(3)}</span>
     </div>
   );

@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { MarketHeader } from "@/components/terminal/MarketHeader";
 import { TradingChart } from "@/components/terminal/TradingChart";
+import { ChartControls } from "@/components/terminal/ChartControls";
 import { OrderBook } from "@/components/terminal/OrderBook";
 import { TradeHistoryTape } from "@/components/terminal/TradeHistoryTape";
 import { MarketPanelTabs } from "@/components/terminal/MarketPanelTabs";
 import { OrderForm } from "@/components/terminal/OrderForm";
 import { PositionsPanel } from "@/components/terminal/PositionsPanel";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { aggregateCandles, DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 
 /**
  * Mobile stacks Chart -> Order Book/Trades tabs -> Order Form -> Positions
@@ -16,7 +19,9 @@ import { GlassCard } from "@/components/ui/GlassCard";
  * grid with a persistent orderbook on the left and trade tape on the right.
  */
 export function TerminalLayout() {
-  const { market, openPositions } = useTerminal();
+  const { market, activeMarketId, openPositions } = useTerminal();
+  const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
+  const displayCandles = aggregateCandles(market.candles, timeframe.bucketMs);
 
   return (
     <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-6">
@@ -29,10 +34,14 @@ export function TerminalLayout() {
           </div>
 
           <div className="order-1 border-b border-white/5 p-3 sm:p-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:border-b-0">
+            <div className="mb-2 flex items-center justify-between">
+              <ChartControls value={timeframe} onChange={setTimeframe} />
+            </div>
             <TradingChart
-              candles={market.candles}
+              candles={displayCandles}
               currentPrice={market.price}
               positions={openPositions}
+              seriesKey={`${activeMarketId}:${timeframe.label}`}
             />
           </div>
 

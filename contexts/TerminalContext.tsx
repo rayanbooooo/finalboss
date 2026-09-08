@@ -5,9 +5,13 @@ import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { usePositions, type PositionWithPnl } from "@/hooks/usePositions";
 import type { MarketSnapshot } from "@/types/market";
 import type { ExecuteOrderParams, Position } from "@/types/trading";
+import type { MarketId } from "@/lib/markets";
 
 interface TerminalContextValue {
   market: MarketSnapshot;
+  markets: Record<MarketId, MarketSnapshot>;
+  activeMarketId: MarketId;
+  setActiveMarketId: (id: MarketId) => void;
   openPositions: PositionWithPnl[];
   history: Position[];
   openPosition: (params: ExecuteOrderParams) => Position;
@@ -17,11 +21,14 @@ interface TerminalContextValue {
 const TerminalContext = createContext<TerminalContextValue | null>(null);
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
-  const market = useGlobalMarketFeed();
-  const { openPositions, history, open, close } = usePositions(market.price);
+  const { markets, activeMarketId, setActiveMarketId, activeMarket } = useGlobalMarketFeed();
+  const { openPositions, history, open, close } = usePositions(markets);
 
   const value: TerminalContextValue = {
-    market,
+    market: activeMarket,
+    markets,
+    activeMarketId,
+    setActiveMarketId,
     openPositions,
     history,
     openPosition: open,

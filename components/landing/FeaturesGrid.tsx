@@ -4,7 +4,11 @@ import { Reveal } from "@/components/ui/Reveal";
 
 export function FeaturesGrid() {
   return (
-    <section className="px-4 py-20 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+        <div className="absolute -right-32 top-0 h-[440px] w-[440px] animate-drift-2 rounded-full bg-sky-400/10 blur-[100px] motion-reduce:animate-none" />
+        <div className="absolute -left-20 bottom-0 h-[380px] w-[380px] animate-drift-3 rounded-full bg-violet-500/10 blur-[100px] motion-reduce:animate-none" />
+      </div>
       <div className="mx-auto max-w-7xl">
         <Reveal className="max-w-xl">
           <span className="font-mono text-xs tracking-wide text-violet-400/70">
