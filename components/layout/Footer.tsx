@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
 
 const FOOTER_LINKS: Record<string, { label: string; href: string }[]> = {
   Product: [
@@ -27,9 +27,7 @@ export function Footer() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">
             <Link href="/" className="flex items-center gap-2 text-white">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-emerald-500">
-                <TrendingUp className="h-4 w-4 text-white" />
-              </span>
+              <Logo className="h-8 w-8" />
               <span className="font-bold">FinalBoss</span>
             </Link>
             <p className="mt-3 text-sm text-white/50">

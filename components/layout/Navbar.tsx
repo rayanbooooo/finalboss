@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, TrendingUp } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
 import { useWalletModal } from "@/contexts/WalletModalContext";
@@ -10,6 +10,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
 import { AccountBadge } from "@/components/wallet/AccountBadge";
+import { Logo } from "@/components/ui/Logo";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { LiveTicker } from "@/components/layout/LiveTicker";
 import { cn } from "@/lib/utils";
@@ -24,9 +25,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-white/5 bg-base-950/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 text-white">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-emerald-500 shadow-glow-violet">
-            <TrendingUp className="h-5 w-5 text-white" />
-          </span>
+          <Logo />
           <span className="text-lg font-bold tracking-tight">FinalBoss</span>
         </Link>
 
