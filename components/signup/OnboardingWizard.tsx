@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Tabs } from "@/components/ui/Tabs";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { StepProgress } from "@/components/ui/StepProgress";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
@@ -36,15 +36,18 @@ const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
 
 const STEP_LABELS = ["Method", "Profile", "Risk & Preferences", "Review"];
 const TOTAL_STEPS = 4;
-const SUBMIT_DELAY_MS = 1400;
 const REDIRECT_DELAY_MS = 1600;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 export function OnboardingWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState<OnboardingMethod>("wallet");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [riskTolerance, setRiskTolerance] = useState<RiskTolerance | null>(null);
@@ -55,7 +58,7 @@ export function OnboardingWizard() {
 
   const { isConnected, address } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { markOnboarded } = useOnboarding();
+  const { markOnboarded, signUpWithEmail } = useOnboarding();
 
   const [prevIsConnected, setPrevIsConnected] = useState(isConnected);
   if (isConnected !== prevIsConnected) {
@@ -77,28 +80,66 @@ export function OnboardingWizard() {
     return <SuccessState />;
   }
 
+  if (awaitingConfirmation) {
+    return (
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+        <h2 className="text-lg font-semibold text-white">Confirm your email</h2>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">
+          We sent a confirmation link to{" "}
+          <span className="font-medium text-white/80">{email}</span>. Click it to
+          activate your account, then sign in.
+        </p>
+        <Link
+          href="/signin"
+          className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
+        >
+          Go to sign in
+        </Link>
+      </div>
+    );
+  }
+
   const handleEmailContinue = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!EMAIL_PATTERN.test(email)) return;
     setStep(2);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!agreed || !displayName.trim() || !experienceLevel || !riskTolerance) return;
     setSubmitting(true);
-    setTimeout(() => {
-      markOnboarded({
-        method,
-        email: method === "email" ? email : undefined,
-        displayName: displayName.trim(),
-        experienceLevel,
-        riskTolerance,
-        defaultLeverage,
-        createdAt: Date.now(),
-      });
+    setAuthError(null);
+
+    const nextProfile = {
+      method,
+      email: method === "email" ? email : undefined,
+      displayName: displayName.trim(),
+      experienceLevel,
+      riskTolerance,
+      defaultLeverage,
+      createdAt: Date.now(),
+    };
+
+    // A wallet signup has no email/password to create a real account with,
+    // so it stays a local profile.
+    if (method !== "email") {
+      markOnboarded(nextProfile);
       setSubmitting(false);
       setDone(true);
-    }, SUBMIT_DELAY_MS);
+      return;
+    }
+
+    const result = await signUpWithEmail(email, password, nextProfile);
+    setSubmitting(false);
+    if (result.status === "error") {
+      setAuthError(result.message);
+      return;
+    }
+    if (result.status === "confirm-email") {
+      setAwaitingConfirmation(true);
+      return;
+    }
+    setDone(true);
   };
 
   return (
@@ -143,15 +184,36 @@ export function OnboardingWizard() {
                   />
                 </div>
               </div>
+              <div>
+                <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white/70">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none"
+                />
+              </div>
               <Button
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={!EMAIL_PATTERN.test(email)}
+                disabled={!EMAIL_PATTERN.test(email) || password.length < MIN_PASSWORD_LENGTH}
                 className="w-full"
               >
                 Continue
               </Button>
+              <p className="text-center text-xs text-white/40">
+                Already have an account?{" "}
+                <Link href="/signin" className="text-violet-300 hover:underline">
+                  Sign in
+                </Link>
+              </p>
             </form>
           )}
         </div>
@@ -292,6 +354,12 @@ export function OnboardingWizard() {
               and acknowledge the risks of high-leverage trading.
             </span>
           </label>
+
+          {authError && (
+            <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+              {authError}
+            </p>
+          )}
 
           <div className="flex gap-3">
             <Button variant="outline" size="lg" onClick={() => setStep(3)} className="w-full">

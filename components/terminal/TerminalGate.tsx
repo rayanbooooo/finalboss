@@ -6,10 +6,10 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Spinner } from "@/components/ui/Spinner";
 
 /**
- * Interim client-side gate: /terminal requires a connected wallet or a
- * completed signup (localStorage flag) until real Supabase-backed accounts
- * land. Waits for wagmi's reconnect attempt to settle before redirecting,
- * so an already-onboarded user isn't bounced during the reconnect flicker.
+ * Client-side gate: /terminal requires a Supabase session, a connected
+ * wallet, or a completed local signup. Waits for the auth check, the
+ * localStorage read and wagmi's reconnect attempt to all settle before
+ * redirecting, so a signed-in user isn't bounced during that flicker.
  */
 export function TerminalGate({ children }: { children: ReactNode }) {
   const { isOnboarded, isResolved } = useOnboarding();

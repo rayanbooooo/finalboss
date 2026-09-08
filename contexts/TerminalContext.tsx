@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { usePositions, type PositionWithPnl } from "@/hooks/usePositions";
 import type { MarketSnapshot } from "@/types/market";
 import type { ExecuteOrderParams, Position } from "@/types/trading";
@@ -26,7 +27,8 @@ const TerminalContext = createContext<TerminalContextValue | null>(null);
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
   const { markets, activeMarketId, setActiveMarketId, activeMarket } = useGlobalMarketFeed();
-  const { openPositions, history, open, close } = usePositions(markets);
+  const { userId } = useOnboarding();
+  const { openPositions, history, open, close } = usePositions(markets, userId);
   const [positionsTab, setPositionsTab] = useState<PositionsTab>("open");
 
   const value: TerminalContextValue = {

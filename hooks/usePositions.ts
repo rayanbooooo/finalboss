@@ -10,7 +10,7 @@ import {
   calcPnlPercent,
   calcPositionSize,
 } from "@/lib/calculations";
-import { generateId } from "@/lib/utils";
+import { getSupabase, positionToRow, rowToPosition, type PositionRow } from "@/lib/supabase";
 
 export interface PositionWithPnl extends Position {
   markPrice: number;
@@ -27,37 +27,82 @@ const MAX_STORED_HISTORY = 200;
  * position.marketId), never against whichever market the UI currently has
  * selected - a BTC position must keep tracking BTC even while the terminal
  * is showing ETH.
+ *
+ * Signed in with Supabase configured, positions live in the database and
+ * follow the account across devices. Otherwise they fall back to
+ * localStorage, which is what a wallet-only or backend-less session gets.
  */
-export function usePositions(markets: Record<MarketId, MarketSnapshot>) {
+export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: string | null) {
   const [positions, setPositions] = useState<Position[]>([]);
-  const [restored, setRestored] = useState(false);
+  // Keyed by account rather than a plain boolean, so switching accounts
+  // invalidates "restored" without a setState in the effect body.
+  const [restoredFor, setRestoredFor] = useState<string | null>(null);
   const [prevMarkets, setPrevMarkets] = useState(markets);
   const marketsRef = useRef(markets);
+  // id -> the status we last wrote to the database, so the sync effect can
+  // tell an unsaved position from one that just changed status.
+  const syncedRef = useRef(new Map<string, Position["status"]>());
+
+  // Memoized so it's a stable effect dependency - rebuilding it every render
+  // would re-fire the sync effect continuously.
+  const remote = useMemo(() => {
+    const supabase = getSupabase();
+    return supabase && userId ? { supabase, userId } : null;
+  }, [userId]);
+
+  const storeKey = userId ?? "local";
+  const restored = restoredFor === storeKey;
 
   useEffect(() => {
     marketsRef.current = markets;
   }, [markets]);
 
   // Read after mount (never during render) so the server-rendered HTML and
-  // the hydration pass agree - same reason OnboardingContext defers its own
-  // localStorage read.
+  // the hydration pass agree.
   useEffect(() => {
+    let cancelled = false;
+    syncedRef.current = new Map();
+
+    if (remote) {
+      void remote.supabase
+        .from("positions")
+        .select("*")
+        .order("opened_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("Could not load positions:", error.message);
+          } else if (data) {
+            const loaded = (data as PositionRow[]).map(rowToPosition);
+            loaded.forEach((p) => syncedRef.current.set(p.id, p.status));
+            setPositions(loaded);
+          }
+          setRestoredFor(storeKey);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const raf = requestAnimationFrame(() => {
       try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) setPositions(JSON.parse(raw) as Position[]);
+        setPositions(raw ? (JSON.parse(raw) as Position[]) : []);
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
       }
-      setRestored(true);
+      setRestoredFor(storeKey);
     });
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [remote, storeKey]);
 
   // Gated on `restored` so the empty initial state can't overwrite stored
   // positions before the read above has run.
   useEffect(() => {
-    if (!restored) return;
+    if (!restored || remote) return;
     const open = positions.filter((p) => p.status === "open");
     const closed = positions.filter((p) => p.status !== "open").slice(0, MAX_STORED_HISTORY);
     try {
@@ -65,7 +110,42 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>) {
     } catch {
       // Storage full or blocked - the session still works from memory.
     }
-  }, [positions, restored]);
+  }, [positions, restored, remote]);
+
+  // Write-through to the database. Covers opening, closing and liquidation
+  // uniformly: anything whose status differs from what was last written gets
+  // inserted or updated. The UI never waits on this.
+  useEffect(() => {
+    if (!restored || !remote) return;
+    positions.forEach((position) => {
+      const synced = syncedRef.current.get(position.id);
+      if (synced === position.status) return;
+      syncedRef.current.set(position.id, position.status);
+
+      if (!synced) {
+        void remote.supabase
+          .from("positions")
+          .insert(positionToRow(position, remote.userId))
+          .then(({ error }) => {
+            if (error) console.error("Could not save position:", error.message);
+          });
+        return;
+      }
+
+      void remote.supabase
+        .from("positions")
+        .update({
+          status: position.status,
+          closed_at: position.closedAt ? new Date(position.closedAt).toISOString() : null,
+          close_price: position.closePrice ?? null,
+          realized_pnl: position.realizedPnl ?? null,
+        })
+        .eq("id", position.id)
+        .then(({ error }) => {
+          if (error) console.error("Could not update position:", error.message);
+        });
+    });
+  }, [positions, restored, remote]);
 
   const open = useCallback((params: ExecuteOrderParams) => {
     const size = calcPositionSize(params.margin, params.leverage, params.entryPrice);
@@ -75,7 +155,8 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>) {
       params.side
     );
     const position: Position = {
-      id: generateId("pos"),
+      // A uuid so the same id is valid as the database primary key.
+      id: crypto.randomUUID(),
       marketId: params.marketId,
       symbol: params.symbol,
       side: params.side,
