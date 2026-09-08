@@ -8,13 +8,15 @@ import { buttonVariants } from "@/components/ui/Button";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { calcLiquidationPrice } from "@/lib/calculations";
+import { calcLiquidationPrice, calcPnl, calcPositionSize } from "@/lib/calculations";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
 const PREVIEW_MARGIN = 1000;
+const CARD_LEVERAGE = 20;
+const CARD_ENTRY_DISCOUNT = 0.973;
 
 export function Hero() {
   const { activeMarket: market } = useGlobalMarketFeed();
@@ -24,6 +26,12 @@ export function Hero() {
 
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(20);
+  // Frozen at first paint so the floating card doesn't jump around as the
+  // live price ticks - only the "mark" side of it stays live.
+  const [cardEntry] = useState(() => market.price * CARD_ENTRY_DISCOUNT);
+
+  const cardSize = calcPositionSize(PREVIEW_MARGIN, CARD_LEVERAGE, cardEntry);
+  const cardPnl = calcPnl(cardEntry, market.price, cardSize, "long");
 
   // Notional USD exposure (margin x leverage) - not calcPositionSize, which
   // returns the position size in units of the underlying asset (BTC).
@@ -95,8 +103,45 @@ export function Hero() {
         >
           <div
             className={cn(
+              "relative w-full overflow-hidden rounded-[22px] border border-black/10 p-5 text-base-950/90",
+              "shadow-[0_30px_70px_-20px_rgba(201,166,91,0.35)]",
+              "lg:absolute lg:left-[4%] lg:top-1 lg:w-[300px] lg:-rotate-6"
+            )}
+            style={{
+              background:
+                "linear-gradient(135deg, #7a5c2e 0%, #d9b978 22%, #f5e3ab 38%, #b8863a 52%, #f5e3ab 68%, #d9b978 84%, #7a5c2e 100%)",
+            }}
+          >
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/25 to-transparent opacity-60"
+              aria-hidden="true"
+            />
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-black/15 px-2.5 py-1 font-mono text-[11px] font-medium tracking-wide">
+                  LONG &middot; {market.symbol}
+                </span>
+                <span className="font-mono text-base font-bold">{CARD_LEVERAGE}x</span>
+              </div>
+              <div className="mt-5">
+                <div className="font-mono text-2xl font-bold tabular-nums">
+                  {formatCurrency(cardPnl)}
+                </div>
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                  Unrealized P&amp;L
+                </div>
+              </div>
+              <div className="mt-5 flex justify-between font-mono text-[11px] font-medium opacity-80">
+                <span>Entry {formatCurrency(cardEntry)}</span>
+                <span>Mark {formatCurrency(market.price)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={cn(
               "w-full rounded-[22px] border border-white/10 bg-base-900/70 shadow-2xl backdrop-blur-xl",
-              "lg:absolute lg:right-0 lg:top-4 lg:w-[360px]"
+              "lg:absolute lg:right-0 lg:top-28 lg:w-[360px]"
             )}
           >
             <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
