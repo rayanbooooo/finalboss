@@ -204,6 +204,7 @@ export function parsePositions(result: Record<string, unknown>): LivePosition[] 
       leverage: num(row.leverage),
       margin: num(row.positionIM),
       unrealisedPnl: num(row.unrealisedPnl),
+      openedAt: num(row.createdTime) || Date.now(),
     }));
 }
 

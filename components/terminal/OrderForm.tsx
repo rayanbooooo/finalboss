@@ -22,7 +22,8 @@ const EXECUTED_LABEL_MS = 1200;
 const BALANCE_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 export function OrderForm() {
-  const { market, activeMarketId, openPosition, availableBalance } = useTerminal();
+  const { market, activeMarketId, openPosition, availableBalance, accountMode, live } =
+    useTerminal();
   const bestBid = market.orderbook.bids[0];
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
@@ -42,9 +43,14 @@ export function OrderForm() {
   );
 
   const exceedsBalance = margin > availableBalance;
+  // Placing orders on a connected account is not wired up yet. Until it is,
+  // the form must refuse rather than quietly open a demo position while the
+  // panel beside it says TESTNET or REAL FUNDS - a fake fill presented as a
+  // real one is worse than no fill at all.
+  const readOnlyLive = live.active;
 
   const handleExecute = () => {
-    if (margin <= 0 || exceedsBalance) return;
+    if (margin <= 0 || exceedsBalance || readOnlyLive) return;
     openPosition({
       marketId: activeMarketId,
       symbol: market.symbol,
@@ -142,13 +148,23 @@ export function OrderForm() {
         </div>
         <div className="mt-2 flex justify-between text-xs">
           <span className="text-white/40">Available</span>
+          {/* A live account whose balance hasn't loaded is unknown, not zero.
+              Rendering $0.00 would read as "this account is empty". */}
           <span className="font-mono tabular-nums text-white/60">
-            {formatCurrency(availableBalance)}
+            {live.active && !live.ready ? "—" : formatCurrency(availableBalance)}
           </span>
         </div>
       </div>
 
-      {exceedsBalance && (
+      {readOnlyLive && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed text-amber-200">
+          You&apos;re viewing your {accountMode === "real" ? "real" : "testnet"} Bybit
+          account. Placing orders on it isn&apos;t enabled yet - switch to Demo to trade
+          here.
+        </p>
+      )}
+
+      {exceedsBalance && !readOnlyLive && (
         <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
           Margin exceeds your available balance of {formatCurrency(availableBalance)}.
         </p>
@@ -176,10 +192,14 @@ export function OrderForm() {
         variant={side === "long" ? "secondary" : "danger"}
         size="lg"
         onClick={handleExecute}
-        disabled={margin <= 0 || exceedsBalance}
+        disabled={margin <= 0 || exceedsBalance || readOnlyLive}
         className="w-full"
       >
-        {justExecuted ? "Order Filled" : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
+        {readOnlyLive
+          ? "Read-only on this account"
+          : justExecuted
+            ? "Order Filled"
+            : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
       </Button>
     </div>
   );

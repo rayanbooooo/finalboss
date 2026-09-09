@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
+import { AccountModeSwitch } from "@/components/terminal/AccountModeSwitch";
 import { AccountBadge } from "@/components/wallet/AccountBadge";
 import { MarketSelector } from "@/components/terminal/MarketSelector";
 import { cn } from "@/lib/utils";
@@ -47,8 +48,20 @@ export function MarketHeader() {
               market.isLive ? "bg-emerald-400" : "bg-violet-400"
             )}
           />
-          {market.isLive ? "LIVE" : "SIMULATED"}
+          {/* "LIVE" here is about the price feed, never about the money -
+              hence the explicit wording, and the separately labelled account
+              switch beside it. */}
+          {market.isLive ? "LIVE PRICES" : "SIMULATED PRICES"}
         </Badge>
+      </div>
+
+      <div className="hidden h-8 w-px bg-white/10 sm:block" aria-hidden="true" />
+
+      <div className="flex items-center gap-2">
+        <span className="hidden text-[11px] uppercase tracking-wider text-white/35 sm:block">
+          Account
+        </span>
+        <AccountModeSwitch />
       </div>
 
       <div className="hidden h-8 w-px bg-white/10 sm:block" aria-hidden="true" />

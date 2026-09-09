@@ -13,21 +13,27 @@ import { liquidationProgress, priceMovePercent } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 
 export function OpenPositionsTable() {
-  const { openPositions, closePosition } = useTerminal();
+  const { openPositions, closePosition, live } = useTerminal();
   const { toast } = useToast();
 
   if (openPositions.length === 0) {
     return (
       <EmptyState
         icon={CandlestickChart}
-        title="No open positions"
-        description="Place an order from the panel on the right and it will appear here, marked live against its own market."
+        title={live.locked ? "Exchange key locked" : "No open positions"}
+        description={
+          live.locked
+            ? "Unlock your exchange key in Settings to see the positions open on this account."
+            : live.active
+              ? "Positions opened on your Bybit account appear here."
+              : "Place an order from the panel on the right and it will appear here, marked live against its own market."
+        }
       />
     );
   }
 
   return (
-    <table className="w-full min-w-[820px] text-left text-sm">
+    <table className="w-full min-w-[900px] text-left text-sm">
       <thead>
         <tr className="border-b border-white/5 text-xs text-white/40">
           <th className="px-4 py-3 font-medium sm:px-6">Market</th>
@@ -65,26 +71,41 @@ export function OpenPositionsTable() {
                 {formatPrice(position.markPrice)}
               </td>
               <td className="px-4 py-3">
-                <span className="font-mono text-rose-400">
-                  {formatPrice(position.liquidationPrice)}
-                </span>
-                {/* Formatted to the price's precision, not the gap's own - a
-                    $52 gap on BTC should read $52.43, not $52.431. */}
-                <span className="mt-0.5 block font-mono text-[11px] text-white/40">
-                  {formatCurrency(
-                    Math.abs(position.markPrice - position.liquidationPrice),
-                    priceDecimals(position.markPrice)
-                  )}{" "}
-                  away
-                </span>
-                <LiquidationMeter
-                  progress={liquidationProgress(
-                    position.entryPrice,
-                    position.markPrice,
-                    position.liquidationPrice,
-                    position.side
-                  )}
-                />
+                {/* An exchange omits the liquidation price when a position
+                    can't be liquidated. Rendering that as a number would say
+                    "liquidation at $0.00", which is the worst misreading
+                    available on this screen. */}
+                {Number.isFinite(position.liquidationPrice) ? (
+                  <>
+                    <span className="font-mono text-rose-400">
+                      {formatPrice(position.liquidationPrice)}
+                    </span>
+                    {/* Formatted to the price's precision, not the gap's own - a
+                        $52 gap on BTC should read $52.43, not $52.431. */}
+                    <span className="mt-0.5 block font-mono text-[11px] text-white/40">
+                      {formatCurrency(
+                        Math.abs(position.markPrice - position.liquidationPrice),
+                        priceDecimals(position.markPrice)
+                      )}{" "}
+                      away
+                    </span>
+                    <LiquidationMeter
+                      progress={liquidationProgress(
+                        position.entryPrice,
+                        position.markPrice,
+                        position.liquidationPrice,
+                        position.side
+                      )}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <span className="font-mono text-white/40">—</span>
+                    <span className="mt-0.5 block text-[11px] text-white/30">
+                      not reported
+                    </span>
+                  </>
+                )}
               </td>
               <td className="px-4 py-3">
                 <span
@@ -105,6 +126,16 @@ export function OpenPositionsTable() {
                 <Button
                   variant="outline"
                   size="sm"
+                  // Closing a position on a connected account isn't wired up
+                  // yet. Left enabled it would call the demo close with an id
+                  // that matches nothing, changing nothing while announcing
+                  // that the position was closed.
+                  disabled={live.active}
+                  title={
+                    live.active
+                      ? "Closing positions on a connected account isn't enabled yet - close it on Bybit"
+                      : undefined
+                  }
                   onClick={() => {
                     closePosition(position.id);
                     toast({

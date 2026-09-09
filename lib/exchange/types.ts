@@ -43,6 +43,7 @@ export interface LivePosition {
   leverage: number;
   margin: number;
   unrealisedPnl: number;
+  openedAt: number;
 }
 
 /** Trading rules for one symbol. Leverage bounds come from here rather than

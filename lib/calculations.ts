@@ -120,6 +120,9 @@ export function liquidationProgress(
   liquidationPrice: number,
   side: OrderSide
 ): number {
+  // A venue omits the liquidation price when a position cannot be liquidated,
+  // which arrives here as NaN. Without this the meter computes a NaN width.
+  if (!Number.isFinite(liquidationPrice) || !Number.isFinite(markPrice)) return 0;
   const span = Math.abs(entryPrice - liquidationPrice);
   if (span <= 0) return 0;
   const adverse = side === "long" ? entryPrice - markPrice : markPrice - entryPrice;
