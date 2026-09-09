@@ -11,9 +11,10 @@ import {
   calcLiquidationPrice,
   calcPositionSize,
   clampLeverage,
+  liquidationDistancePercent,
   MIN_LEVERAGE,
 } from "@/lib/calculations";
-import { formatCurrency, formatPrice } from "@/lib/format";
+import { formatCurrency, formatPrice, priceDecimals } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
 
@@ -161,9 +162,12 @@ export function OrderForm() {
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
         <Row label="Entry Price" value={formatPrice(market.price)} />
         <Row
-          label="Est. Liquidation Price"
+          label="Est. Liq. Price"
           value={formatPrice(liquidationPrice)}
           valueClassName="text-rose-400"
+          // Distance is formatted to the price's precision, not its own - a
+          // $64 gap on BTC should read $64.47, not $64.469.
+          sub={`${formatCurrency(Math.abs(market.price - liquidationPrice), priceDecimals(market.price))} away · ${liquidationDistancePercent(leverage).toFixed(3)}% of price`}
         />
       </div>
 
@@ -185,15 +189,22 @@ function Row({
   label,
   value,
   valueClassName,
+  sub,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  sub?: string;
 }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between gap-3">
       <span className="text-white/50">{label}</span>
-      <span className={cn("font-mono text-white/85", valueClassName)}>{value}</span>
+      <span className="text-right">
+        <span className={cn("block font-mono text-white/85", valueClassName)}>{value}</span>
+        {sub && (
+          <span className="mt-0.5 block font-mono text-[11px] text-white/40">{sub}</span>
+        )}
+      </span>
     </div>
   );
 }

@@ -96,6 +96,37 @@ export function liquidationDistancePercent(leverage: number): number {
   return (1 / leverage) * (1 - MAINTENANCE_MARGIN_SHARE) * 100;
 }
 
+/**
+ * Signed move from entry as a percentage of the entry price.
+ *
+ * Deliberately separate from calcPnlPercent, which is a percentage of the
+ * margin. The two differ by exactly the leverage - 0.028% of price is 28% of
+ * margin at 1000x - and showing either one as a bare "%" next to the other is
+ * what makes a position look like it should already have been liquidated.
+ */
+export function priceMovePercent(entryPrice: number, markPrice: number): number {
+  if (entryPrice <= 0) return 0;
+  return ((markPrice - entryPrice) / entryPrice) * 100;
+}
+
+/**
+ * How far a position has travelled from its entry toward its liquidation
+ * price, as 0-1. Zero while the trade is in profit, 1 at liquidation. Reads
+ * the same at every leverage, which the raw percentages don't.
+ */
+export function liquidationProgress(
+  entryPrice: number,
+  markPrice: number,
+  liquidationPrice: number,
+  side: OrderSide
+): number {
+  const span = Math.abs(entryPrice - liquidationPrice);
+  if (span <= 0) return 0;
+  const adverse = side === "long" ? entryPrice - markPrice : markPrice - entryPrice;
+  if (adverse <= 0) return 0;
+  return Math.min(1, adverse / span);
+}
+
 function clampSlider(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
