@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, RotateCcw } from "lucide-react";
 import { TOUR_STORAGE_KEY } from "@/components/terminal/GuidedTour";
+import { ExchangePanel } from "@/components/terminal/ExchangePanel";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
@@ -183,6 +184,8 @@ export function SettingsPanel() {
         </p>
         <LeverageSlider leverage={defaultLeverage} onChange={setDefaultLeverage} />
       </section>
+
+      <ExchangePanel />
 
       <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-sm font-semibold text-white">Walkthrough</h2>
