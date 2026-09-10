@@ -89,12 +89,16 @@ export function Hero() {
             >
               Launch App <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link
-              href="/signup"
-              className={cn(buttonVariants("outline", "lg"), "w-full sm:w-auto")}
-            >
-              Sign Up
-            </Link>
+            {/* Offering "Sign Up" to someone who already has an account sends
+                them into the wizard and makes it look like nothing saved. */}
+            {!isOnboarded && (
+              <Link
+                href="/signup"
+                className={cn(buttonVariants("outline", "lg"), "w-full sm:w-auto")}
+              >
+                Sign Up
+              </Link>
+            )}
           </div>
 
           <p className="mt-6 max-w-md text-xs leading-relaxed text-white/35">

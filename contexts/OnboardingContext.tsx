@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { MIN_LEVERAGE } from "@/lib/calculations";
 import type { OnboardingProfile } from "@/types/onboarding";
 
 const STORAGE_KEY = "finalboss:profile";
@@ -41,9 +42,20 @@ function fallbackProfile(email: string | undefined): OnboardingProfile {
     displayName: email ? email.split("@")[0] : "Trader",
     experienceLevel: "some",
     riskTolerance: "moderate",
-    defaultLeverage: 10,
+    defaultLeverage: MIN_LEVERAGE,
     createdAt: Date.now(),
   };
+}
+
+/** Read outside React state so the value is current at the moment a session
+ * arrives, rather than whatever a closure captured earlier. */
+function readStoredProfile(): OnboardingProfile | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as OnboardingProfile) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
@@ -76,26 +88,63 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!supabase) return undefined;
     let cancelled = false;
 
+    /**
+     * Loads the account's profile, creating the row if it doesn't exist yet.
+     *
+     * Creating it here rather than during sign-up is what makes this correct
+     * when the project requires email confirmation: sign-up has no session to
+     * write with, so the row has to be written on the first authenticated
+     * load instead. Doing it at sign-up only meant every confirmed account
+     * ended up with no profile at all, and the answers the user gave in the
+     * wizard were silently discarded.
+     */
     async function loadProfile(id: string, email: string | undefined) {
-      const { data } = await supabase!
+      const { data, error } = await supabase!
         .from("profiles")
         .select("display_name, method, experience_level, risk_tolerance, default_leverage")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
-      setProfile(
-        data
-          ? {
-              method: data.method,
-              email,
-              displayName: data.display_name,
-              experienceLevel: data.experience_level,
-              riskTolerance: data.risk_tolerance,
-              defaultLeverage: data.default_leverage,
-              createdAt: Date.now(),
-            }
-          : fallbackProfile(email)
+
+      if (error) {
+        console.error("Could not load profile:", error.message);
+        setProfile(readStoredProfile() ?? fallbackProfile(email));
+        return;
+      }
+
+      if (data) {
+        setProfile({
+          method: data.method,
+          email,
+          displayName: data.display_name,
+          experienceLevel: data.experience_level,
+          riskTolerance: data.risk_tolerance,
+          defaultLeverage: data.default_leverage,
+          createdAt: Date.now(),
+        });
+        return;
+      }
+
+      // No row yet: use the answers kept locally through the confirmation
+      // round-trip, falling back to something sane if they're gone.
+      const pending = readStoredProfile() ?? fallbackProfile(email);
+      // ignoreDuplicates makes this insert-if-absent. getSession() and
+      // onAuthStateChange can both land here for the same account, and the
+      // loser of that race must not fail or overwrite.
+      const { error: writeError } = await supabase!.from("profiles").upsert(
+        {
+          id,
+          display_name: pending.displayName,
+          method: pending.method,
+          experience_level: pending.experienceLevel,
+          risk_tolerance: pending.riskTolerance,
+          default_leverage: pending.defaultLeverage,
+        },
+        { onConflict: "id", ignoreDuplicates: true }
       );
+      if (writeError) console.error("Could not create profile:", writeError.message);
+      if (cancelled) return;
+      setProfile({ ...pending, email });
     }
 
     supabase.auth
@@ -178,23 +227,32 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (error) return { status: "error", message: error.message };
 
       if (!data.session) {
-        // Project has email confirmation switched on; there's no session to
-        // write the profile with until they click the link.
+        // Email confirmation is on, so there is no session to write the
+        // profile with yet. Keep the answers locally - loadProfile writes the
+        // row on the first authenticated load. Without this the whole wizard
+        // is discarded the moment the user goes to check their inbox.
+        markOnboarded(next);
         return { status: "confirm-email" };
       }
 
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.session.user.id,
-        display_name: next.displayName,
-        method: next.method,
-        experience_level: next.experienceLevel,
-        risk_tolerance: next.riskTolerance,
-        default_leverage: next.defaultLeverage,
-      });
+      // Session available immediately (confirmation off). Still an upsert
+      // rather than an insert, because onAuthStateChange may already have
+      // fired and created the row from the stored profile.
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: data.session.user.id,
+          display_name: next.displayName,
+          method: next.method,
+          experience_level: next.experienceLevel,
+          risk_tolerance: next.riskTolerance,
+          default_leverage: next.defaultLeverage,
+        },
+        { onConflict: "id" }
+      );
       if (profileError) return { status: "error", message: profileError.message };
 
       setUserId(data.session.user.id);
-      setProfile(next);
+      markOnboarded(next);
       return { status: "active" };
     },
     [markOnboarded]

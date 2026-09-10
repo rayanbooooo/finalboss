@@ -60,7 +60,7 @@ export function OnboardingWizard() {
 
   const { isConnected, address } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { markOnboarded, signUpWithEmail } = useOnboarding();
+  const { markOnboarded, signUpWithEmail, isOnboarded, profile, signOut } = useOnboarding();
 
   const [prevIsConnected, setPrevIsConnected] = useState(isConnected);
   if (isConnected !== prevIsConnected) {
@@ -91,12 +91,45 @@ export function OnboardingWizard() {
           <span className="font-medium text-white/80">{email}</span>. Click it to
           activate your account, then sign in.
         </p>
+        <p className="mt-3 text-xs leading-relaxed text-white/40">
+          Your answers are saved - you won&apos;t have to fill this in again.
+        </p>
         <Link
           href="/signin"
           className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
         >
           Go to sign in
         </Link>
+      </div>
+    );
+  }
+
+  // Reaching the wizard with an account already set up means arriving here by
+  // a stale link or a stray button, not wanting to start over. Offering the
+  // form would look like the account never saved.
+  if (isOnboarded && step === 1) {
+    return (
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+        <h2 className="text-lg font-semibold text-white">You already have an account</h2>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">
+          {profile?.displayName
+            ? `You're set up as ${profile.displayName}.`
+            : "You're already set up."}{" "}
+          There&apos;s nothing to fill in again.
+        </p>
+        <Link
+          href="/terminal"
+          className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
+        >
+          Go to the terminal
+        </Link>
+        <button
+          type="button"
+          onClick={signOut}
+          className="mt-3 text-xs text-white/40 transition-colors hover:text-white/70"
+        >
+          Sign out and start over
+        </button>
       </div>
     );
   }
