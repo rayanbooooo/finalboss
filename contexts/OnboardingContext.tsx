@@ -11,6 +11,7 @@ const STORAGE_KEY = "finalboss:profile";
 export type SignUpResult =
   | { status: "active" }
   | { status: "confirm-email" }
+  | { status: "already-registered" }
   | { status: "error"; message: string };
 
 interface OnboardingContextValue {
@@ -225,6 +226,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) return { status: "error", message: error.message };
+
+      // Supabase deliberately won't say "that email is taken" - doing so would
+      // let anyone test which addresses have accounts. Instead it returns a
+      // user with no identities and no session, which is otherwise identical
+      // to a fresh sign-up awaiting confirmation. Without this check the UI
+      // promises a confirmation email that was never sent, and the user waits
+      // for something that is never going to arrive.
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        return { status: "already-registered" };
+      }
 
       if (!data.session) {
         // Email confirmation is on, so there is no session to write the

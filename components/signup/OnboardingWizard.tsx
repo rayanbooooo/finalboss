@@ -50,6 +50,7 @@ export function OnboardingWizard() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [riskTolerance, setRiskTolerance] = useState<RiskTolerance | null>(null);
@@ -80,6 +81,25 @@ export function OnboardingWizard() {
 
   if (done) {
     return <SuccessState />;
+  }
+
+  if (alreadyRegistered) {
+    return (
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+        <h2 className="text-lg font-semibold text-white">That email already has an account</h2>
+        <p className="mt-2 text-sm leading-relaxed text-white/55">
+          <span className="font-medium text-white/80">{email}</span> is already
+          registered, so no new confirmation email was sent. Sign in with the password
+          you set when you created it.
+        </p>
+        <Link
+          href="/signin"
+          className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
+        >
+          Sign in instead
+        </Link>
+      </div>
+    );
   }
 
   if (awaitingConfirmation) {
@@ -168,6 +188,10 @@ export function OnboardingWizard() {
     setSubmitting(false);
     if (result.status === "error") {
       setAuthError(result.message);
+      return;
+    }
+    if (result.status === "already-registered") {
+      setAlreadyRegistered(true);
       return;
     }
     if (result.status === "confirm-email") {
