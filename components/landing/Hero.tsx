@@ -34,9 +34,13 @@ export function Hero() {
 
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(MIN_LEVERAGE);
-  // Frozen at first paint so the floating card doesn't jump around as the
-  // live price ticks - only the "mark" side of it stays live.
-  const [cardEntry] = useState(() => market.price * CARD_ENTRY_DISCOUNT);
+  // Derived from the live price, not frozen at first paint. Frozen, it kept
+  // whatever the feed seeds with before connecting while the mark went on to
+  // the real price - the gap between the two became the card's "profit", and
+  // it advertised a $64,478 gain on $1,000 of margin. At 500x that move would
+  // have been liquidated many times over before it arrived. Tracking the price
+  // keeps the card showing exactly the 0.1% move it claims, around $500.
+  const cardEntry = market.price * CARD_ENTRY_DISCOUNT;
 
   const cardSize = calcPositionSize(PREVIEW_MARGIN, CARD_LEVERAGE, cardEntry);
   const cardPnl = calcPnl(cardEntry, market.price, cardSize, "long");

@@ -22,23 +22,37 @@ export function calcSma(candles: Candle[], period = SMA_PERIOD): (number | null)
  * risk engine.
  */
 /**
- * The maintenance buffer is a share of the position's own margin, not a flat
- * fraction of price. A fixed ratio breaks down as leverage rises: at 200x it
- * equals the initial margin ratio, which puts the liquidation price exactly
- * on the entry price and liquidates the position the moment it opens, and
- * past that it crosses to the wrong side of entry entirely. Expressing it as
- * a share keeps liquidation at a consistent 95% loss of margin at every
- * leverage, and leaves the common cases (10x and below) unchanged.
+ * Maintenance margin, as a fraction of the position's notional - the standard
+ * formulation every real venue uses. Liquidation sits at
+ * `initial margin - maintenance margin`, i.e. `1/leverage - this`.
+ *
+ * 0.03% is calibrated against Aark's live 1000x product: their liquidation
+ * price sits 0.070% from entry, which is exactly 0.1% initial margin at 1000x
+ * minus this.
+ *
+ * An earlier version used 0.5%, which crossed 1/leverage at 200x and put the
+ * liquidation price on the wrong side of entry - liquidating every position
+ * above 200x the instant it opened. The fix then was to express maintenance
+ * as a share of margin instead; the real problem was simply that 0.5% is far
+ * too large for a venue offering this much leverage. At 0.03% the standard
+ * formula holds until 3,333x, well past anything on offer here, and the clamp
+ * below makes the degenerate case impossible rather than merely unlikely.
  */
-const MAINTENANCE_MARGIN_SHARE = 0.05;
+const MAINTENANCE_MARGIN_RATIO = 0.0003;
+
+/** How far price can move against a position before it's liquidated, as a
+ * fraction of the entry price. */
+function liquidationMove(leverage: number): number {
+  if (!Number.isFinite(leverage) || leverage <= 0) return 0;
+  return Math.max(0, 1 / leverage - MAINTENANCE_MARGIN_RATIO);
+}
 
 export function calcLiquidationPrice(
   entryPrice: number,
   leverage: number,
   side: OrderSide
 ): number {
-  // Distance from entry to liquidation, as a fraction of price.
-  const move = (1 / leverage) * (1 - MAINTENANCE_MARGIN_SHARE);
+  const move = liquidationMove(leverage);
   return side === "long" ? entryPrice * (1 - move) : entryPrice * (1 + move);
 }
 
@@ -93,7 +107,7 @@ export function sliderValueFromLeverage(leverage: number): number {
 
 /** How far price can move against a position before it's liquidated. */
 export function liquidationDistancePercent(leverage: number): number {
-  return (1 / leverage) * (1 - MAINTENANCE_MARGIN_SHARE) * 100;
+  return liquidationMove(leverage) * 100;
 }
 
 /**

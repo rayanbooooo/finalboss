@@ -69,6 +69,16 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
         </nav>
 
         <div className="mt-auto flex flex-col gap-3">
+          {/* The only route into an existing account from here. */}
+          {!isOnboarded && (
+            <Link
+              href="/signin"
+              onClick={onClose}
+              className={cn(buttonVariants("ghost", "lg"), "w-full")}
+            >
+              Sign In
+            </Link>
+          )}
           {isConnected ? (
             <ConnectedBadge />
           ) : profile ? (

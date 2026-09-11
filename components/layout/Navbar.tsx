@@ -46,6 +46,17 @@ export function Navbar() {
         <LiveTicker />
 
         <div className="hidden items-center gap-3 md:flex">
+          {/* Without this there is no way into an existing account from the
+              landing page: Sign Up, Connect Wallet and Start Trading all lead
+              somewhere else. */}
+          {!isOnboarded && (
+            <Link
+              href="/signin"
+              className="text-sm font-medium text-white/70 transition-colors hover:text-white"
+            >
+              Sign In
+            </Link>
+          )}
           {isConnected ? (
             <ConnectedBadge />
           ) : profile ? (
