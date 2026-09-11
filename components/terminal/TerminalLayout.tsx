@@ -28,6 +28,11 @@ export function TerminalLayout() {
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const [chartExpanded, setChartExpanded] = useState(false);
   const sourceCandles = timeframe.source === "coarse" ? market.longRangeCandles : market.candles;
+  // The data source is part of the series identity. Without it the chart sees
+  // "BTC:1m" before and after the feed goes live, decides it is the same
+  // dataset, and patches only the last bar - splicing one real candle onto the
+  // simulator's history and drawing a vertical spike that never happened.
+  const seriesKey = `${activeMarketId}:${timeframe.label}:${market.isLive ? "live" : "sim"}`;
   const displayCandles = aggregateCandles(sourceCandles, timeframe.bucketMs);
 
   useEffect(() => {
@@ -70,7 +75,7 @@ export function TerminalLayout() {
                 candles={displayCandles}
                 currentPrice={market.price}
                 positions={openPositions}
-                seriesKey={`${activeMarketId}:${timeframe.label}`}
+                seriesKey={seriesKey}
               />
             )}
           </div>
@@ -90,7 +95,7 @@ export function TerminalLayout() {
                   candles={displayCandles}
                   currentPrice={market.price}
                   positions={openPositions}
-                  seriesKey={`${activeMarketId}:${timeframe.label}`}
+                  seriesKey={seriesKey}
                 />
               </div>,
               document.body

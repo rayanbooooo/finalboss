@@ -9,6 +9,21 @@ import { MIN_LEVERAGE } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 
 export const TOUR_STORAGE_KEY = "finalboss:tour-done";
+const TOUR_START_EVENT = "finalboss:start-tour";
+
+/**
+ * Set when the tour is asked for from somewhere it isn't mounted - the sidebar
+ * on the settings screen, say. The event alone would be lost in that case,
+ * because navigation to the trading screen only mounts GuidedTour afterwards,
+ * so the flag is consumed on mount instead.
+ */
+let startRequested = false;
+
+/** Starts the walkthrough from anywhere, mounted or not. */
+export function startGuidedTour(): void {
+  startRequested = true;
+  window.dispatchEvent(new Event(TOUR_START_EVENT));
+}
 
 const PADDING = 8;
 /** Gap between the spotlight ring and the card explaining it. */
@@ -119,14 +134,28 @@ export function GuidedTour() {
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    const open = () => setStep(0);
+    window.addEventListener(TOUR_START_EVENT, open);
+
     const raf = requestAnimationFrame(() => {
+      // An explicit request always wins, including after the tour has been
+      // completed once - that is the whole point of asking for it again.
+      if (startRequested) {
+        startRequested = false;
+        setStep(0);
+        return;
+      }
       try {
         if (window.localStorage.getItem(TOUR_STORAGE_KEY) !== "true") setStep(0);
       } catch {
         // Storage blocked - skip the tour rather than trapping the user in it.
       }
     });
-    return () => cancelAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener(TOUR_START_EVENT, open);
+    };
   }, []);
 
   const finish = useCallback(() => {

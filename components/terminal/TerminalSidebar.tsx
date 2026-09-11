@@ -9,6 +9,7 @@ import {
   CandlestickChart,
   History,
   Home,
+  LifeBuoy,
   ListOrdered,
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,6 +20,7 @@ import { useAccount } from "wagmi";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Logo } from "@/components/ui/Logo";
+import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { cn } from "@/lib/utils";
 
 const COLLAPSED_KEY = "finalboss:sidebar-collapsed";
@@ -121,6 +123,17 @@ export function TerminalSidebar() {
           collapsed={collapsed}
           active={fundingMode === "withdraw"}
           onClick={() => openFunding("withdraw")}
+        />
+        <SidebarItem
+          icon={LifeBuoy}
+          label="Guide"
+          collapsed={collapsed}
+          onClick={() => {
+            // The tour only mounts on the trading screen, so get there first;
+            // startGuidedTour leaves a request that survives the navigation.
+            startGuidedTour();
+            if (!onTradeScreen) router.push("/terminal");
+          }}
         />
         <SidebarItem
           icon={Settings}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, RotateCcw } from "lucide-react";
-import { TOUR_STORAGE_KEY } from "@/components/terminal/GuidedTour";
+import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { ExchangePanel } from "@/components/terminal/ExchangePanel";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -34,11 +34,7 @@ export function SettingsPanel() {
   const router = useRouter();
 
   const replayTour = () => {
-    try {
-      window.localStorage.removeItem(TOUR_STORAGE_KEY);
-    } catch {
-      // The tour runs whenever the flag is absent, so a blocked store is fine.
-    }
+    startGuidedTour();
     router.push("/terminal");
   };
 

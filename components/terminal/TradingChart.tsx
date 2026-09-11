@@ -70,6 +70,35 @@ function toSmaPoints(candles: Candle[]) {
   return points;
 }
 
+export interface SeriesFrame {
+  firstTime: number;
+  count: number;
+  seriesKey: string | undefined;
+}
+
+/**
+ * Whether the incoming candles are a different dataset (redraw everything) or
+ * the same one with its last bar moved on (patch that bar).
+ *
+ * Getting this wrong in the "same dataset" direction is the expensive
+ * mistake: the chart keeps the previous series and appends one bar from the
+ * new one, which drew a vertical spike when the simulator's history was still
+ * on screen as the live feed arrived. seriesKey carries the data source for
+ * exactly that reason - a first-bar timestamp can coincide across a swap, but
+ * the key cannot.
+ */
+export function shouldReplaceSeries(
+  next: SeriesFrame,
+  prev: { firstTime: number | null; count: number; seriesKey: string | undefined }
+): boolean {
+  return (
+    prev.firstTime === null ||
+    next.seriesKey !== prev.seriesKey ||
+    next.firstTime !== prev.firstTime ||
+    next.count < prev.count
+  );
+}
+
 export function TradingChart({
   candles,
   currentPrice,
@@ -180,17 +209,14 @@ export function TradingChart({
     if (!series || !volumeSeries || !smaSeries || candles.length === 0) return;
 
     const first = candles[0];
-    // A genuinely new/rolled candle (or a same-candle price tick) always
-    // keeps every earlier bar's time untouched - only the dataset being
-    // swapped out wholesale (placeholder -> seeded data, sim -> live feed,
-    // a feed reconnect) changes what the first bar's time is. Comparing
-    // lengths alone isn't enough: the placeholder and the freshly-seeded
-    // data are both 80 bars, so a length-only check misses that swap.
-    const isWholesaleReplacement =
-      prevFirstTimeRef.current === null ||
-      seriesKey !== prevSeriesKeyRef.current ||
-      first.time !== prevFirstTimeRef.current ||
-      candles.length < prevCandleCountRef.current;
+    const isWholesaleReplacement = shouldReplaceSeries(
+      { firstTime: first.time, count: candles.length, seriesKey },
+      {
+        firstTime: prevFirstTimeRef.current,
+        count: prevCandleCountRef.current,
+        seriesKey: prevSeriesKeyRef.current,
+      }
+    );
 
     if (isWholesaleReplacement) {
       series.setData(candles.map(toChartCandle));
