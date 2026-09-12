@@ -4,6 +4,7 @@ import { ExchangeProvider } from "@/contexts/ExchangeContext";
 import { TerminalGate } from "@/components/terminal/TerminalGate";
 import { TerminalSidebar } from "@/components/terminal/TerminalSidebar";
 import { FundingModal } from "@/components/terminal/FundingModal";
+import { MobileTabBar } from "@/components/terminal/MobileTabBar";
 
 export default function TerminalRouteLayout({ children }: { children: ReactNode }) {
   return (
@@ -16,10 +17,12 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
           {/* Fixed to the viewport on desktop so panels scroll inside the shell
               rather than the page scrolling as a whole; stacks and scrolls
               normally on small screens. */}
-          <div className="flex min-h-screen lg:h-screen lg:overflow-hidden">
+          {/* pb-16 on mobile keeps the last panel clear of the tab bar. */}
+          <div className="flex min-h-screen pb-16 lg:h-screen lg:overflow-hidden lg:pb-0">
             <TerminalSidebar />
             <div className="flex min-w-0 flex-1 flex-col">{children}</div>
           </div>
+          <MobileTabBar />
           <FundingModal />
         </TerminalProvider>
       </ExchangeProvider>

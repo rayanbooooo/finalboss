@@ -24,7 +24,7 @@ export function AccountModeSwitch() {
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-lg bg-white/5 p-0.5"
+      className="flex w-full items-center gap-0.5 rounded-lg bg-white/5 p-0.5 lg:w-auto"
       role="group"
       aria-label="Account mode"
     >
@@ -51,7 +51,7 @@ export function AccountModeSwitch() {
             }
             onClick={() => setAccountMode(option.value)}
             className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+              "min-h-9 flex-1 rounded-md px-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-30 lg:min-h-0 lg:flex-none lg:py-1",
               active
                 ? option.value === "real"
                   ? "bg-rose-500/20 text-rose-200"

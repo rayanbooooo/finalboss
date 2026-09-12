@@ -19,7 +19,7 @@ import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
 
 /**
- * Mobile stacks Chart -> Order Book/Trades tabs -> Order Form -> Positions
+ * Mobile stacks Chart -> Order Form -> Order Book/Trades tabs -> Positions
  * (via the order-* utilities); desktop switches to a 3-column trading-desk
  * grid with a persistent orderbook on the left and trade tape on the right.
  */
@@ -101,13 +101,13 @@ export function TerminalLayout() {
               document.body
             )}
 
-          <div className="order-2 border-b border-white/5 lg:hidden">
+          <div className="order-3 border-b border-white/5 lg:hidden">
             <MarketPanelTabs />
           </div>
 
           {/* Spans both rows so the submit button is reachable without
               scrolling the panel. */}
-          <div className="order-3 border-b border-white/5 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-l lg:border-white/5">
+          <div className="order-2 border-b border-white/5 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-l lg:border-white/5">
             <OrderForm />
             <BalancesPanel />
           </div>
