@@ -171,7 +171,7 @@ export function OrderForm() {
       )}
 
       <div data-tour="leverage">
-        <LeverageSlider leverage={leverage} onChange={setLeverage} />
+        <LeverageSlider leverage={leverage} onChange={setLeverage} price={market.price} />
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">

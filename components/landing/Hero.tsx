@@ -115,7 +115,10 @@ export function Hero() {
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, delay: 0.15, ease: EASE }}
-          className="relative flex flex-col gap-5 lg:block lg:min-h-[500px]"
+          // Tall enough for the absolutely-positioned card at lg:top-28 plus its own
+          // height. The section clips (overflow-hidden, for the blur blobs), so a
+          // container shorter than the card cuts its bottom off.
+          className="relative flex flex-col gap-5 lg:block lg:min-h-[820px]"
         >
           <div
             className={cn(
@@ -217,7 +220,7 @@ export function Hero() {
                 </button>
               </div>
 
-              <LeverageSlider leverage={leverage} onChange={setLeverage} />
+              <LeverageSlider leverage={leverage} onChange={setLeverage} price={market.price} compact />
 
               <div className="mt-5 flex flex-col gap-2.5 border-y border-white/5 py-4 text-sm">
                 <div className="flex justify-between">

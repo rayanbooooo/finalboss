@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useAccount, useDisconnect } from "wagmi";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MIN_LEVERAGE } from "@/lib/calculations";
+import { attributePendingReferral, generateReferralCode } from "@/lib/referrals";
 import type { OnboardingProfile } from "@/types/onboarding";
 
 const STORAGE_KEY = "finalboss:profile";
@@ -140,6 +141,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           experience_level: pending.experienceLevel,
           risk_tolerance: pending.riskTolerance,
           default_leverage: pending.defaultLeverage,
+          // Generated once, here, and never again - the referral link has to
+          // be the same every time it is shared.
+          referral_code: generateReferralCode(),
         },
         { onConflict: "id", ignoreDuplicates: true }
       );
@@ -156,6 +160,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         if (user) {
           setUserId(user.id);
           void loadProfile(user.id, user.email);
+          void attributePendingReferral();
         }
       })
       .catch((error) => {
@@ -172,7 +177,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       const user = session?.user;
       setUserId(user?.id ?? null);
-      if (user) void loadProfile(user.id, user.email);
+      if (user) {
+        void loadProfile(user.id, user.email);
+        void attributePendingReferral();
+      }
       setAuthReady(true);
     });
 
@@ -257,6 +265,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           experience_level: next.experienceLevel,
           risk_tolerance: next.riskTolerance,
           default_leverage: next.defaultLeverage,
+          referral_code: generateReferralCode(),
         },
         { onConflict: "id" }
       );

@@ -9,21 +9,31 @@ import {
   MAX_LEVERAGE,
   MIN_LEVERAGE,
 } from "@/lib/calculations";
+import { formatCurrency, priceDecimals } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface LeverageSliderProps {
   leverage: number;
   onChange: (leverage: number) => void;
+  /** Current mark price. When given, the warning states the distance in
+   * dollars as well as percent - a percentage alone can't be compared against
+   * another venue's figure without doing the arithmetic yourself. */
+  price?: number;
+  /** Drops the preset row and the scale labels. For the landing page preview,
+   * where the full control is taller than the card it sits in. The risk
+   * warning is never dropped - that is the part worth the space. */
+  compact?: boolean;
 }
 
 const PRESETS = [500, 600, 750, 850, 1000];
 
-export function LeverageSlider({ leverage, onChange }: LeverageSliderProps) {
+export function LeverageSlider({ leverage, onChange, price, compact = false }: LeverageSliderProps) {
   const sliderValue = sliderValueFromLeverage(leverage);
   // The whole range starts at 500x, so every setting is extreme by any normal
   // measure - there's no "safe" end of this slider to reassure anyone about,
   // which is why the track starts amber rather than green.
   const distance = liquidationDistancePercent(leverage);
+  const distanceInDollars = price && price > 0 ? (price * distance) / 100 : null;
 
   return (
     <div>
@@ -70,13 +80,15 @@ export function LeverageSlider({ leverage, onChange }: LeverageSliderProps) {
         />
       </div>
 
-      <div className="mt-1 flex justify-between font-mono text-[11px] text-white/30">
-        <span>{MIN_LEVERAGE}x</span>
-        <span>{(MIN_LEVERAGE + MAX_LEVERAGE) / 2}x</span>
-        <span>{MAX_LEVERAGE}x</span>
-      </div>
+      {!compact && (
+        <div className="mt-1 flex justify-between font-mono text-[11px] text-white/30">
+          <span>{MIN_LEVERAGE}x</span>
+          <span>{(MIN_LEVERAGE + MAX_LEVERAGE) / 2}x</span>
+          <span>{MAX_LEVERAGE}x</span>
+        </div>
+      )}
 
-      <div className="mt-3 grid grid-cols-5 gap-1.5">
+      <div className={cn("mt-3 grid grid-cols-5 gap-1.5", compact && "hidden")}>
         {PRESETS.map((preset) => {
           const value = clampLeverage(preset);
           return (
@@ -102,10 +114,20 @@ export function LeverageSlider({ leverage, onChange }: LeverageSliderProps) {
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
           At {leverage}x a{" "}
-          <span className="font-mono font-semibold">{distance.toFixed(3)}%</span> move in
-          the <span className="font-semibold">price</span> against you liquidates the
-          position and loses the margin - your P&amp;L moves {leverage}x faster than the
-          price does. Bitcoin covers that in seconds.
+          <span className="font-mono font-semibold">{distance.toFixed(3)}%</span>
+          {distanceInDollars !== null && (
+            <>
+              {" "}
+              (
+              <span className="font-mono font-semibold">
+                {formatCurrency(distanceInDollars, priceDecimals(price!))}
+              </span>
+              )
+            </>
+          )}{" "}
+          move in the <span className="font-semibold">price</span> against you liquidates
+          the position and loses the margin - your P&amp;L moves {leverage}x faster than
+          the price does. It covers that in seconds.
         </span>
       </div>
     </div>
