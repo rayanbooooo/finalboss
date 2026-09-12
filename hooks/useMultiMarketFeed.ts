@@ -1,27 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Candle, MarketSnapshot, OrderBookSnapshot, Trade } from "@/types/market";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  Candle,
+  CandleSeries,
+  MarketSnapshot,
+  OrderBookSnapshot,
+  Trade,
+} from "@/types/market";
 import { useMarketSimulator } from "@/hooks/useMarketSimulator";
-import { connectMultiMarketFeed, fetchHistoricalCandles } from "@/lib/liveMarketFeed";
+import {
+  connectMultiMarketFeed,
+  fetchHistoricalCandles,
+  fetchProductStats,
+} from "@/lib/liveMarketFeed";
 import { nextCandle } from "@/lib/marketSimulator";
 import { MARKETS, type MarketId } from "@/lib/markets";
+import { BASE_GRANULARITY, granularityMs, type Granularity } from "@/lib/timeframes";
 
 const CONNECT_TIMEOUT_MS = 8000;
 const RECONNECT_DELAY_MS = 12_000;
 const MAX_LIVE_TRADES = 40;
-const LIVE_CANDLE_INTERVAL_MS = 60_000;
-// Coinbase's candles endpoint caps out at 300 bars regardless of
-// granularity, so 300 bars at 1H granularity is the deepest single request
-// can go (~12.5 days) - real history for the 1H/4H timeframe buttons
-// without switching data providers.
-const LONG_RANGE_GRANULARITY_SECONDS = 3600;
+/** The base series backs the default chart view, so it is worth a second
+ * request to double its depth from five hours to ten. Everything coarser is
+ * already deep enough in one page. */
+const BASE_PAGES = 2;
 
 interface LiveState {
+  /** The websocket is delivering right now. Drives the LIVE/SIMULATED badge. */
   isLive: boolean;
+  /** Real REST history has landed for this market. Separate from `isLive`
+   * because they fail independently: after a socket drop we still hold real
+   * candles, and replacing them with simulated ones (which is what keying this
+   * off `isLive` used to do) is how a synthetic history gets spliced onto a
+   * real one. */
+  hasHistory: boolean;
   price: number;
-  candles: Candle[];
-  longRangeCandles: Candle[];
+  series: CandleSeries;
   orderbook: OrderBookSnapshot;
   trades: Trade[];
   open24h: number;
@@ -33,9 +48,9 @@ interface LiveState {
 function emptyLiveState(): LiveState {
   return {
     isLive: false,
+    hasHistory: false,
     price: 0,
-    candles: [],
-    longRangeCandles: [],
+    series: {},
     orderbook: { bids: [], asks: [] },
     trades: [],
     open24h: 0,
@@ -54,23 +69,61 @@ function markAllOffline(state: Record<MarketId, LiveState>): Record<MarketId, Li
 }
 
 /**
- * `ticker` messages drive OHLC/roll (see LIVE_CANDLE_INTERVAL_MS below) but
- * carry no per-trade size - only `match` messages do - so real trade volume
- * is accumulated onto the currently-forming candle here, independently.
+ * Rolls a price into every series we have loaded, each at its own bar width, so
+ * a chart stays live whichever timeframe is on screen without costing an extra
+ * request per timeframe.
  */
-function addVolumeToLastCandle(candles: Candle[], size: number): Candle[] {
-  if (candles.length === 0) return candles;
-  const last = candles[candles.length - 1];
-  return [...candles.slice(0, -1), { ...last, volume: last.volume + size }];
+function rollIntoSeries(series: CandleSeries, price: number): CandleSeries {
+  const next: CandleSeries = {};
+  for (const key of Object.keys(series)) {
+    const granularity = Number(key);
+    const bars = series[granularity];
+    next[granularity] = bars
+      ? nextCandle(bars, price, granularityMs(granularity as Granularity))
+      : bars;
+  }
+  return next;
+}
+
+/**
+ * `ticker` messages drive the OHLC roll but carry no per-trade size - only
+ * `match` messages do - so real trade volume is accumulated onto the
+ * currently-forming bar of each series here, independently.
+ */
+function addVolumeToSeries(series: CandleSeries, size: number): CandleSeries {
+  const next: CandleSeries = {};
+  for (const key of Object.keys(series)) {
+    const granularity = Number(key);
+    const bars = series[granularity];
+    if (!bars || bars.length === 0) {
+      next[granularity] = bars;
+      continue;
+    }
+    const last = bars[bars.length - 1];
+    next[granularity] = [...bars.slice(0, -1), { ...last, volume: last.volume + size }];
+  }
+  return next;
+}
+
+export interface MultiMarketFeed {
+  markets: Record<MarketId, MarketSnapshot>;
+  /**
+   * Loads a timeframe's candles the first time it is opened. Idempotent per
+   * (market, granularity) and safe to call on every render of a chart.
+   *
+   * Lazy rather than eager because five markets across six granularities is
+   * thirty requests on page load, for five series anyone actually looks at.
+   */
+  requestSeries: (marketId: MarketId, granularity: Granularity) => void;
 }
 
 /**
  * One shared Coinbase feed for every market in lib/markets.ts. Each market
  * also keeps its own client-side simulator (useMarketSimulator) running the
- * whole time as a hot fallback - cheap, and it means a feed drop degrades
- * that one market gracefully instead of freezing it.
+ * whole time as a hot fallback - cheap, and it means an unreachable feed
+ * degrades that market gracefully instead of freezing it.
  */
-export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
+export function useMultiMarketFeed(): MultiMarketFeed {
   const [live, setLive] = useState<Record<MarketId, LiveState>>(() => {
     const init = {} as Record<MarketId, LiveState>;
     MARKETS.forEach((m) => {
@@ -79,13 +132,40 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     return init;
   });
 
-  // Once the historical-candles fetch succeeds for a market, its last real
-  // price anchors that market's simulator fallback (see useMarketSimulator)
-  // even if the websocket itself never goes live - candles only populate
-  // from a successful fetch, so their presence is the "we have a real
-  // price" signal.
+  /** `marketId:granularity` keys already requested, so a chart can ask on every
+   * render. Cleared on reconnect and replayed, so a series the user had open
+   * comes back rather than staying frozen at the moment the socket died. */
+  const requestedRef = useRef<Set<string>>(new Set());
+
+  const requestSeries = useCallback((marketId: MarketId, granularity: Granularity) => {
+    const key = `${marketId}:${granularity}`;
+    if (requestedRef.current.has(key)) return;
+    const market = MARKETS.find((m) => m.id === marketId);
+    if (!market) return;
+    requestedRef.current.add(key);
+
+    const pages = granularity === BASE_GRANULARITY ? BASE_PAGES : 1;
+    fetchHistoricalCandles(market.coinbaseProductId, granularity, pages)
+      .then((candles) => {
+        if (candles.length === 0) return;
+        setLive((prev) => ({
+          ...prev,
+          [marketId]: {
+            ...prev[marketId],
+            series: { ...prev[marketId].series, [granularity]: candles },
+          },
+        }));
+      })
+      .catch(() => {
+        // Let a later render retry rather than leaving the timeframe blank.
+        requestedRef.current.delete(key);
+      });
+  }, []);
+
+  // Once real history has landed for a market, its last real price anchors
+  // that market's simulator fallback even if the websocket never goes live.
   const anchorPrice = (id: MarketId): number | undefined =>
-    live[id].candles.length > 0 ? live[id].price : undefined;
+    live[id].hasHistory ? live[id].price : undefined;
 
   const simulators: Record<MarketId, MarketSnapshot> = {
     BTC: useMarketSimulator(MARKETS[0], anchorPrice("BTC")),
@@ -118,32 +198,49 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
     async function start() {
       receivedFor = new Set<string>();
 
-      const [results, longRangeResults] = await Promise.all([
-        Promise.allSettled(MARKETS.map((m) => fetchHistoricalCandles(m.coinbaseProductId, 300))),
-        Promise.allSettled(
-          MARKETS.map((m) =>
-            fetchHistoricalCandles(m.coinbaseProductId, 300, LONG_RANGE_GRANULARITY_SECONDS)
-          )
-        ),
-      ]);
+      const replay = Array.from(requestedRef.current);
+      requestedRef.current.clear();
+
+      // Base candles and the 24h stats together: the header needs real
+      // open/high/low/volume from the first paint, and waiting on the socket's
+      // first `ticker` for them means rendering a 0.00% change over a $0.00
+      // high, which reads as a broken market rather than as pending data.
+      await Promise.allSettled(
+        MARKETS.map(async (market) => {
+          const [candles, stats] = await Promise.all([
+            fetchHistoricalCandles(market.coinbaseProductId, BASE_GRANULARITY, BASE_PAGES),
+            fetchProductStats(market.coinbaseProductId),
+          ]);
+          if (cancelled || candles.length === 0) return;
+          requestedRef.current.add(`${market.id}:${BASE_GRANULARITY}`);
+          setLive((prev) => {
+            const current = prev[market.id];
+            return {
+              ...prev,
+              [market.id]: {
+                ...current,
+                hasHistory: true,
+                // A socket that beat the REST round trip already has a fresher
+                // price; don't walk it back to this snapshot's last close.
+                price: current.isLive ? current.price : candles[candles.length - 1].close,
+                series: { ...current.series, [BASE_GRANULARITY]: candles },
+                open24h: stats?.open24h ?? current.open24h,
+                high24h: stats?.high24h ?? current.high24h,
+                low24h: stats?.low24h ?? current.low24h,
+                volume24h: stats?.volume24h ?? current.volume24h,
+              },
+            };
+          });
+        })
+      );
       if (cancelled) return;
 
-      setLive((prev) => {
-        const next = { ...prev };
-        results.forEach((result, i) => {
-          const market = MARKETS[i];
-          if (result.status === "fulfilled") {
-            const seedPrice = result.value[result.value.length - 1]?.close ?? market.seedPrice;
-            next[market.id] = { ...next[market.id], candles: result.value, price: seedPrice };
-          }
-        });
-        longRangeResults.forEach((result, i) => {
-          const market = MARKETS[i];
-          if (result.status === "fulfilled") {
-            next[market.id] = { ...next[market.id], longRangeCandles: result.value };
-          }
-        });
-        return next;
+      // Bring back any coarser timeframe the user already had open.
+      replay.forEach((key) => {
+        const separator = key.lastIndexOf(":");
+        const marketId = key.slice(0, separator) as MarketId;
+        const granularity = Number(key.slice(separator + 1)) as Granularity;
+        if (granularity !== BASE_GRANULARITY) requestSeries(marketId, granularity);
       });
 
       const productIds = MARKETS.map((m) => m.coinbaseProductId);
@@ -169,7 +266,7 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
               high24h: ticker.high24h,
               low24h: ticker.low24h,
               volume24h: ticker.volume24h,
-              candles: nextCandle(prev[id].candles, ticker.price, LIVE_CANDLE_INTERVAL_MS),
+              series: rollIntoSeries(prev[id].series, ticker.price),
             },
           }));
         },
@@ -183,7 +280,7 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
             [id]: {
               ...prev[id],
               trades: [trade, ...prev[id].trades].slice(0, MAX_LIVE_TRADES),
-              candles: addVolumeToLastCandle(prev[id].candles, trade.size),
+              series: addVolumeToSeries(prev[id].series, trade.size),
             },
           }));
         },
@@ -221,30 +318,34 @@ export function useMultiMarketFeed(): Record<MarketId, MarketSnapshot> {
       if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
       closeSocket?.();
     };
-  }, []);
+  }, [requestSeries]);
 
-  const result = {} as Record<MarketId, MarketSnapshot>;
+  const markets = {} as Record<MarketId, MarketSnapshot>;
   MARKETS.forEach((market) => {
     const state = live[market.id];
-    if (state.isLive) {
+    // Keyed on real history rather than on the socket: a dropped connection
+    // must not swap a real chart back to a synthetic one behind the user.
+    if (state.hasHistory) {
       const change24hPct =
         state.open24h > 0 ? ((state.price - state.open24h) / state.open24h) * 100 : 0;
-      result[market.id] = {
+      const base: Candle[] = state.series[BASE_GRANULARITY] ?? [];
+      markets[market.id] = {
         symbol: market.symbol,
         price: state.price,
-        candles: state.candles,
-        longRangeCandles: state.longRangeCandles,
+        candles: base,
+        series: state.series,
         orderbook: state.orderbook,
         trades: state.trades,
         change24hPct,
         high24h: state.high24h,
         low24h: state.low24h,
         volume24h: state.volume24h,
-        isLive: true,
+        isLive: state.isLive,
       };
     } else {
-      result[market.id] = simulators[market.id];
+      markets[market.id] = simulators[market.id];
     }
   });
-  return result;
+
+  return { markets, requestSeries };
 }

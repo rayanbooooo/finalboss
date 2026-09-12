@@ -5,6 +5,7 @@ import { TerminalGate } from "@/components/terminal/TerminalGate";
 import { TerminalSidebar } from "@/components/terminal/TerminalSidebar";
 import { FundingModal } from "@/components/terminal/FundingModal";
 import { MobileTabBar } from "@/components/terminal/MobileTabBar";
+import { ExchangeModals } from "@/components/terminal/ExchangeModals";
 
 export default function TerminalRouteLayout({ children }: { children: ReactNode }) {
   return (
@@ -24,6 +25,7 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
           </div>
           <MobileTabBar />
           <FundingModal />
+          <ExchangeModals />
         </TerminalProvider>
       </ExchangeProvider>
     </TerminalGate>

@@ -30,7 +30,10 @@ export function ConnectedBadge() {
       <button
         type="button"
         onClick={() => disconnect()}
+        // Explicitly scoped to the wallet: it does not end a FinalBoss session,
+        // which is what the account badge beside it is for.
         aria-label="Disconnect wallet"
+        title="Disconnect wallet"
         className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-emerald-300/70 hover:bg-emerald-500/20 hover:text-emerald-200"
       >
         <LogOut className="h-3.5 w-3.5" />

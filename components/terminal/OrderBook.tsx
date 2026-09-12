@@ -26,6 +26,11 @@ export function OrderBook() {
     0.01
   );
   const spread = asks[0] && bids[0] ? asks[0].price - bids[0].price : 0;
+  // Real candle history arrives over plain HTTPS while the book needs the
+  // websocket, so the two can land apart - and an empty grid with a price
+  // floating in the middle of it reads as a broken market rather than as a
+  // book that hasn't arrived yet.
+  const awaitingBook = bids.length === 0 && asks.length === 0;
 
   return (
     <div className="flex flex-col text-xs">
@@ -35,6 +40,12 @@ export function OrderBook() {
         <span className="text-right">Size</span>
         <span className="text-right">Total</span>
       </div>
+
+      {awaitingBook && (
+        <div className="px-3 py-6 text-center text-white/40">
+          {market.isLive ? "Waiting for the order book…" : "Order book unavailable — feed offline."}
+        </div>
+      )}
 
       <div className="flex flex-col-reverse">
         {asksWithTotal

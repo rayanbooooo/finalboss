@@ -13,15 +13,22 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function SignInForm() {
   const router = useRouter();
-  const { signInWithEmail, isOnboarded } = useOnboarding();
+  const { signInWithEmail, userId } = useOnboarding();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Keyed on a real signed-in session, not on `isOnboarded`.
+  //
+  // `isOnboarded` is `isConnected || userId !== null || profile !== null`, so a
+  // connected wallet or a leftover local profile blob was enough to bounce
+  // anyone off this page - including someone who had just signed out and wanted
+  // to come back as a different account. The sign-in page was unreachable even
+  // by typing the URL, which is the whole of "I can't switch between accounts".
   useEffect(() => {
-    if (isOnboarded) router.replace("/terminal");
-  }, [isOnboarded, router]);
+    if (userId) router.replace("/terminal");
+  }, [userId, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

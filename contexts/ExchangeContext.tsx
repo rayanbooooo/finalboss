@@ -58,6 +58,22 @@ interface ExchangeContextValue {
   permissions: KeyPermissions | null;
   ready: boolean;
 
+  /**
+   * Connect/unlock modal visibility.
+   *
+   * Lives here rather than in the Settings panel because the places that make
+   * someone want to connect a key are not the place the key is entered: the
+   * account-mode switch in the terminal header is the main one. While this was
+   * local state inside ExchangePanel, every other surface could do no more than
+   * mention Settings in prose.
+   */
+  connectOpen: boolean;
+  unlockOpen: boolean;
+  openConnect: () => void;
+  closeConnect: () => void;
+  openUnlock: () => void;
+  closeUnlock: () => void;
+
   connect: (params: ConnectParams) => Promise<void>;
   unlock: (passphrase: string) => Promise<void>;
   lock: () => void;
@@ -78,27 +94,60 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
   // out of devtools' component inspector and any state-serialising tooling.
   const secretRef = useRef<string | null>(null);
   const [unlockedAt, setUnlockedAt] = useState<number | null>(null);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [unlockOpen, setUnlockOpen] = useState(false);
 
   const isUnlocked = unlockedAt !== null;
+
+  const openConnect = useCallback(() => setConnectOpen(true), []);
+  const closeConnect = useCallback(() => setConnectOpen(false), []);
+  const openUnlock = useCallback(() => setUnlockOpen(true), []);
+  const closeUnlock = useCallback(() => setUnlockOpen(false), []);
 
   const lock = useCallback(() => {
     secretRef.current = null;
     setUnlockedAt(null);
   }, []);
 
+  /** The account this provider last loaded for. `undefined` means "no load has
+   * happened yet", which is distinct from a signed-out `null`. */
+  const previousUserIdRef = useRef<string | null | undefined>(undefined);
+
   // Load any saved connection for this account.
   useEffect(() => {
     let cancelled = false;
     const supabase = getSupabase();
 
+    const previousUserId = previousUserIdRef.current;
+    previousUserIdRef.current = userId;
+    const switchedAccount = previousUserId !== undefined && previousUserId !== userId;
+
+    if (switchedAccount) {
+      // Clear the plaintext secret synchronously rather than waiting for the
+      // new account's row to arrive. It lives in a ref precisely so it stays
+      // out of React state, which also means nothing else clears it: without
+      // this, signing out as A and in as B in the same tab left A's decrypted
+      // secret in memory, and credentials() handed it out paired with B's API
+      // key. A session-only connection (never written to any row) survived the
+      // same way, which let B sign requests against A's exchange account.
+      secretRef.current = null;
+    }
+
     if (!supabase || !userId) {
       // Deferred a frame so the effect body itself never calls setState.
       const raf = requestAnimationFrame(() => {
         if (cancelled) return;
-        // A session-only connection lives purely in memory and has no row to
-        // load, so it must survive this - clearing it unconditionally would
-        // disconnect a user who deliberately chose not to save their key.
-        setConnection((current) => (current?.id === "session" ? current : null));
+        if (switchedAccount) {
+          setUnlockedAt(null);
+          setPermissions(null);
+          setSessionOnly(false);
+          setConnection(null);
+        } else {
+          // A session-only connection lives purely in memory and has no row to
+          // load, so it must survive a plain re-run - clearing it here would
+          // disconnect a user who deliberately chose not to save their key.
+          setConnection((current) => (current?.id === "session" ? current : null));
+        }
         setReady(true);
       });
       return () => {
@@ -114,6 +163,11 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       .limit(1)
       .then(({ data, error }) => {
         if (cancelled) return;
+        if (switchedAccount) {
+          setUnlockedAt(null);
+          setPermissions(null);
+          setSessionOnly(false);
+        }
         const row = !error && data?.[0];
         setConnection(
           row
@@ -302,6 +356,12 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       testnet,
       permissions,
       ready,
+      connectOpen,
+      unlockOpen,
+      openConnect,
+      closeConnect,
+      openUnlock,
+      closeUnlock,
       connect,
       unlock,
       lock,
@@ -315,6 +375,12 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       testnet,
       permissions,
       ready,
+      connectOpen,
+      unlockOpen,
+      openConnect,
+      closeConnect,
+      openUnlock,
+      closeUnlock,
       connect,
       unlock,
       lock,

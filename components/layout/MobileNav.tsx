@@ -3,13 +3,10 @@
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X } from "lucide-react";
-import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
-import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { Button, buttonVariants } from "@/components/ui/Button";
-import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
-import { AccountBadge } from "@/components/wallet/AccountBadge";
+import { buttonVariants } from "@/components/ui/Button";
+import { AccountControls } from "@/components/wallet/AccountControls";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
@@ -18,9 +15,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ isOpen, onClose }: MobileNavProps) {
-  const { isConnected } = useAccount();
-  const { open: openWalletModal } = useWalletModal();
-  const { isOnboarded, profile } = useOnboarding();
+  const { isOnboarded } = useOnboarding();
   const navLinks = NAV_LINKS.filter((link) => !(isOnboarded && link.href === "/signup"));
 
   if (!isOpen) return null;
@@ -79,15 +74,7 @@ export function MobileNav({ isOpen, onClose }: MobileNavProps) {
               Sign In
             </Link>
           )}
-          {isConnected ? (
-            <ConnectedBadge />
-          ) : profile ? (
-            <AccountBadge />
-          ) : (
-            <Button variant="outline" size="lg" onClick={openWalletModal} className="w-full">
-              Connect Wallet
-            </Button>
-          )}
+          <AccountControls size="lg" />
           <Link
             href={isOnboarded ? "/terminal" : "/signup"}
             onClick={onClose}

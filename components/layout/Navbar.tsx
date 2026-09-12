@@ -3,13 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { useAccount } from "wagmi";
 import { NAV_LINKS } from "@/lib/mockData";
-import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { Button, buttonVariants } from "@/components/ui/Button";
-import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
-import { AccountBadge } from "@/components/wallet/AccountBadge";
+import { buttonVariants } from "@/components/ui/Button";
+import { AccountControls } from "@/components/wallet/AccountControls";
 import { Logo } from "@/components/ui/Logo";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { LiveTicker } from "@/components/layout/LiveTicker";
@@ -17,9 +14,7 @@ import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isConnected } = useAccount();
-  const { open: openWalletModal } = useWalletModal();
-  const { isOnboarded, profile } = useOnboarding();
+  const { isOnboarded } = useOnboarding();
   // A signed-in account has nothing to sign up for.
   const navLinks = NAV_LINKS.filter((link) => !(isOnboarded && link.href === "/signup"));
 
@@ -57,15 +52,7 @@ export function Navbar() {
               Sign In
             </Link>
           )}
-          {isConnected ? (
-            <ConnectedBadge />
-          ) : profile ? (
-            <AccountBadge />
-          ) : (
-            <Button variant="outline" size="md" onClick={openWalletModal}>
-              Connect Wallet
-            </Button>
-          )}
+          <AccountControls size="md" />
           <Link
             href={isOnboarded ? "/terminal" : "/signup"}
             className={cn(buttonVariants("primary", "md"))}

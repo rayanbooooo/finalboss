@@ -5,9 +5,10 @@ import { useAccount, useDisconnect } from "wagmi";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { attributePendingReferral, generateReferralCode } from "@/lib/referrals";
+import { clearPerUserStorage, STORAGE_KEYS } from "@/lib/storageKeys";
 import type { OnboardingProfile } from "@/types/onboarding";
 
-const STORAGE_KEY = "finalboss:profile";
+const STORAGE_KEY = STORAGE_KEYS.profile;
 
 export type SignUpResult =
   | { status: "active" }
@@ -31,7 +32,8 @@ interface OnboardingContextValue {
     profile: OnboardingProfile
   ) => Promise<SignUpResult>;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
-  signOut: () => void;
+  /** Resolves once the session is actually gone; carries the reason if it isn't. */
+  signOut: () => Promise<{ error?: string }>;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -285,12 +287,26 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {};
   }, []);
 
-  const signOut = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY);
+  /**
+   * Ends the session and removes everything belonging to it.
+   *
+   * Awaited, and it reports failure. The fire-and-forget version looked
+   * identical on screen whether or not Supabase actually accepted the sign-out,
+   * so a failed call (offline, an already-expired refresh token) cleared the
+   * local state, showed the user as signed out, and then restored the very same
+   * session from storage on the next reload - which is exactly what "I can't
+   * switch accounts" looks like from the outside.
+   */
+  const signOut = useCallback(async (): Promise<{ error?: string }> => {
+    clearPerUserStorage();
     setProfile(null);
     setUserId(null);
-    void getSupabase()?.auth.signOut();
     if (isConnected) disconnect();
+
+    const supabase = getSupabase();
+    if (!supabase) return {};
+    const { error } = await supabase.auth.signOut();
+    return error ? { error: error.message } : {};
   }, [disconnect, isConnected]);
 
   const walletResolved = status !== "connecting" && status !== "reconnecting";

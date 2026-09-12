@@ -14,6 +14,7 @@ import { MIN_LEVERAGE } from "@/lib/calculations";
 import { SuccessState } from "@/components/signup/SuccessState";
 import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useSignOut } from "@/hooks/useSignOut";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { truncateAddress } from "@/lib/format";
 import type { ExperienceLevel, OnboardingMethod, RiskTolerance } from "@/types/onboarding";
@@ -61,7 +62,8 @@ export function OnboardingWizard() {
 
   const { isConnected, address } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { markOnboarded, signUpWithEmail, isOnboarded, profile, signOut } = useOnboarding();
+  const { markOnboarded, signUpWithEmail, isOnboarded, profile } = useOnboarding();
+  const { signOut, signingOut } = useSignOut();
 
   const [prevIsConnected, setPrevIsConnected] = useState(isConnected);
   if (isConnected !== prevIsConnected) {
@@ -146,9 +148,10 @@ export function OnboardingWizard() {
         <button
           type="button"
           onClick={signOut}
-          className="mt-3 text-xs text-white/40 transition-colors hover:text-white/70"
+          disabled={signingOut}
+          className="mt-3 text-xs text-white/40 transition-colors hover:text-white/70 disabled:opacity-50"
         >
-          Sign out and start over
+          {signingOut ? "Signing out…" : "Sign out and use a different account"}
         </button>
       </div>
     );

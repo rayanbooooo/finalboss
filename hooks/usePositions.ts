@@ -11,6 +11,7 @@ import {
   calcPositionSize,
 } from "@/lib/calculations";
 import { getSupabase, positionToRow, rowToPosition, type PositionRow } from "@/lib/supabase";
+import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
 
 export interface PositionWithPnl extends Position {
   markPrice: number;
@@ -18,7 +19,7 @@ export interface PositionWithPnl extends Position {
   pnlPercent: number;
 }
 
-const STORAGE_KEY = "finalboss:positions";
+const STORAGE_KEY = STORAGE_KEYS.positions;
 /** Open positions are always kept; only closed history is trimmed. */
 const MAX_STORED_HISTORY = 200;
 
@@ -56,6 +57,10 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
 
   const storeKey = userId ?? "local";
   const restored = restoredFor === storeKey;
+  // Scoped to the account. A single fixed key meant two people using the same
+  // browser shared one set of positions in any local-mode window - and on a
+  // deployment with no backend configured, shared them outright.
+  const localKey = scopedKey(STORAGE_KEY, userId);
 
   useEffect(() => {
     marketsRef.current = markets;
@@ -90,10 +95,10 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
 
     const raf = requestAnimationFrame(() => {
       try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
+        const raw = window.localStorage.getItem(localKey);
         setPositions(raw ? (JSON.parse(raw) as Position[]) : []);
       } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(localKey);
       }
       setRestoredFor(storeKey);
     });
@@ -101,7 +106,7 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-  }, [remote, storeKey]);
+  }, [remote, storeKey, localKey]);
 
   // Gated on `restored` so the empty initial state can't overwrite stored
   // positions before the read above has run.
@@ -110,11 +115,11 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
     const open = positions.filter((p) => p.status === "open");
     const closed = positions.filter((p) => p.status !== "open").slice(0, MAX_STORED_HISTORY);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...open, ...closed]));
+      window.localStorage.setItem(localKey, JSON.stringify([...open, ...closed]));
     } catch {
       // Storage full or blocked - the session still works from memory.
     }
-  }, [positions, restored, remote]);
+  }, [positions, restored, remote, localKey]);
 
   // Write-through to the database. Covers opening, closing and liquidation
   // uniformly: anything whose status differs from what was last written gets

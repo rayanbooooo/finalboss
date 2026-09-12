@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
-const STORAGE_KEY = "finalboss:privacy-ack";
+const STORAGE_KEY = STORAGE_KEYS.privacyAck;
 
 /**
  * Deliberately not a consent banner: this site sets no advertising or

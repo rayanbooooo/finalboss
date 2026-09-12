@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import { Link2, Lock, LockOpen, Unlink } from "lucide-react";
 import { useExchange } from "@/contexts/ExchangeContext";
 import { useToast } from "@/contexts/ToastContext";
-import { ConnectExchangeModal } from "@/components/terminal/ConnectExchangeModal";
-import { UnlockModal } from "@/components/terminal/UnlockModal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 
 export function ExchangePanel() {
-  const { isConnected, isUnlocked, connection, sessionOnly, testnet, disconnect, lock } =
-    useExchange();
+  const {
+    isConnected,
+    isUnlocked,
+    connection,
+    sessionOnly,
+    testnet,
+    disconnect,
+    lock,
+    openConnect,
+    openUnlock,
+  } = useExchange();
   const { toast } = useToast();
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [unlockOpen, setUnlockOpen] = useState(false);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -39,7 +43,7 @@ export function ExchangePanel() {
             account at the exchange - this site never holds your funds, and a key that
             can withdraw is refused.
           </p>
-          <Button variant="primary" size="lg" className="mt-4" onClick={() => setConnectOpen(true)}>
+          <Button variant="primary" size="lg" className="mt-4" onClick={openConnect}>
             <Link2 className="h-4 w-4" />
             Connect exchange
           </Button>
@@ -71,7 +75,7 @@ export function ExchangePanel() {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {!isUnlocked && !sessionOnly && (
-              <Button variant="primary" size="lg" onClick={() => setUnlockOpen(true)}>
+              <Button variant="primary" size="lg" onClick={openUnlock}>
                 <LockOpen className="h-4 w-4" />
                 Unlock
               </Button>
@@ -89,9 +93,8 @@ export function ExchangePanel() {
           </div>
         </>
       )}
-
-      <ConnectExchangeModal isOpen={connectOpen} onClose={() => setConnectOpen(false)} />
-      <UnlockModal isOpen={unlockOpen} onClose={() => setUnlockOpen(false)} />
+      {/* The modals themselves are mounted once in the terminal layout, so the
+          account-mode switch can open them without routing through Settings. */}
     </section>
   );
 }

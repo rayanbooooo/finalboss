@@ -22,8 +22,9 @@ import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Logo } from "@/components/ui/Logo";
 import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { cn } from "@/lib/utils";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
-const COLLAPSED_KEY = "finalboss:sidebar-collapsed";
+const COLLAPSED_KEY = STORAGE_KEYS.sidebarCollapsed;
 
 function scrollToPositions() {
   document.getElementById("positions-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });

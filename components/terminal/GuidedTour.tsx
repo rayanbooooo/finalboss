@@ -7,9 +7,10 @@ import { useTerminal } from "@/contexts/TerminalContext";
 import { formatCurrency } from "@/lib/format";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
-export const TOUR_STORAGE_KEY = "finalboss:tour-done";
-const TOUR_START_EVENT = "finalboss:start-tour";
+export const TOUR_STORAGE_KEY = STORAGE_KEYS.tourDone;
+const TOUR_START_EVENT = STORAGE_KEYS.startTour;
 
 /**
  * Set when the tour is asked for from somewhere it isn't mounted - the sidebar

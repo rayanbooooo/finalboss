@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Candle, MarketSnapshot, OrderBookSnapshot, Trade } from "@/types/market";
+import type { Candle, CandleSeries, MarketSnapshot, OrderBookSnapshot, Trade } from "@/types/market";
 import {
   createFlatCandles,
   createFlatOrderBook,
@@ -13,17 +13,70 @@ import {
   nextTick,
 } from "@/lib/marketSimulator";
 import type { MarketConfig } from "@/lib/markets";
+import { BASE_GRANULARITY, GRANULARITIES, granularityMs } from "@/lib/timeframes";
 
-const CANDLE_INTERVAL_MS = 4000;
 const PRICE_TICK_MS = 1200;
 const ORDERBOOK_TICK_MS = 1500;
 const TRADE_TICK_MS = 900;
 const MAX_TRADES = 40;
 const VOLUME_BASELINE_FACTOR = 2650;
-// Matches the real feed's coarse Coinbase granularity (3600s) so the
-// SIMULATED fallback's 1H/4H timeframes have the same plausible depth as
-// the LIVE path, not just an aggregation of the fine-grained series.
-const LONG_RANGE_INTERVAL_MS = 60 * 60_000;
+/** Matches the live path's per-request cap, so a simulated timeframe spans the
+ * same range as the real one it stands in for. */
+const SIM_BARS = 300;
+/** Hourly bars, so a "24h" figure is actually computed over 24 hours. */
+const HOURS_IN_DAY = 24;
+
+type MakeCandles = (count: number, price: number, intervalMs: number) => Candle[];
+
+/**
+ * One series per supported granularity, each seeded at its own bar width.
+ *
+ * Generating each natively is what keeps a simulated 1D chart a year deep
+ * instead of a resampling of five hours of minute bars - the same reason the
+ * live path fetches per granularity.
+ */
+function buildSeries(price: number, make: MakeCandles): CandleSeries {
+  const series: CandleSeries = {};
+  for (const granularity of GRANULARITIES) {
+    series[granularity] = make(SIM_BARS, price, granularityMs(granularity));
+  }
+  return series;
+}
+
+/**
+ * Rolls a price into every series at that series' own bar width.
+ *
+ * The bar width has to come from the granularity. A previous version rolled a
+ * new bar every 4 seconds to look busy, into an array capped at 500 bars: from
+ * 300 seeded minute bars it filled up in about thirteen minutes and then evicted
+ * one seeded bar every four seconds, so after roughly half an hour the entire
+ * five hours of history was gone and the visible window was shrinking as you
+ * watched it.
+ */
+function rollSeries(series: CandleSeries, price: number): CandleSeries {
+  const next: CandleSeries = {};
+  for (const key of Object.keys(series)) {
+    const granularity = Number(key);
+    const bars = series[granularity];
+    next[granularity] = bars ? nextCandle(bars, price, granularity * 1000) : bars;
+  }
+  return next;
+}
+
+function addVolume(series: CandleSeries, size: number): CandleSeries {
+  const next: CandleSeries = {};
+  for (const key of Object.keys(series)) {
+    const granularity = Number(key);
+    const bars = series[granularity];
+    if (!bars || bars.length === 0) {
+      next[granularity] = bars;
+      continue;
+    }
+    const last = bars[bars.length - 1];
+    next[granularity] = [...bars.slice(0, -1), { ...last, volume: last.volume + size }];
+  }
+  return next;
+}
 
 /**
  * Client-side fallback engine for one market, used whenever its real feed
@@ -47,9 +100,8 @@ export function useMarketSimulator(
 ): MarketSnapshot {
   const { symbol, seedPrice } = config;
   const [price, setPrice] = useState(seedPrice);
-  const [candles, setCandles] = useState<Candle[]>(() => createFlatCandles(300, seedPrice));
-  const [longRangeCandles, setLongRangeCandles] = useState<Candle[]>(() =>
-    createFlatCandles(300, seedPrice, LONG_RANGE_INTERVAL_MS)
+  const [series, setSeries] = useState<CandleSeries>(() =>
+    buildSeries(seedPrice, createFlatCandles)
   );
   const [orderbook, setOrderbook] = useState<OrderBookSnapshot>(() =>
     createFlatOrderBook(seedPrice)
@@ -74,8 +126,7 @@ export function useMarketSimulator(
   // Math.random()-derived output against the server-rendered HTML.
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      setCandles(generateInitialCandles(300, seedPrice));
-      setLongRangeCandles(generateInitialCandles(300, seedPrice, LONG_RANGE_INTERVAL_MS));
+      setSeries(buildSeries(seedPrice, generateInitialCandles));
       setOrderbook(generateOrderBook(seedPrice));
     });
     return () => cancelAnimationFrame(raf);
@@ -91,16 +142,14 @@ export function useMarketSimulator(
     hasSnappedToAnchorRef.current = true;
     const raf = requestAnimationFrame(() => {
       setPrice(realAnchorPrice);
-      setCandles(generateInitialCandles(300, realAnchorPrice));
-      setLongRangeCandles(generateInitialCandles(300, realAnchorPrice, LONG_RANGE_INTERVAL_MS));
+      setSeries(buildSeries(realAnchorPrice, generateInitialCandles));
     });
     return () => cancelAnimationFrame(raf);
   }, [realAnchorPrice]);
 
   if (price !== prevPrice) {
     setPrevPrice(price);
-    setCandles((prev) => nextCandle(prev, price, CANDLE_INTERVAL_MS));
-    setLongRangeCandles((prev) => nextCandle(prev, price, LONG_RANGE_INTERVAL_MS));
+    setSeries((prev) => rollSeries(prev, price));
   }
 
   useEffect(() => {
@@ -123,25 +172,26 @@ export function useMarketSimulator(
       const trade = generateTrade(priceRef.current);
       setTrades((prev) => [trade, ...prev].slice(0, MAX_TRADES));
       setVolume24h((prev) => prev + trade.price * trade.size);
-      setCandles((prev) => {
-        if (prev.length === 0) return prev;
-        const last = prev[prev.length - 1];
-        return [...prev.slice(0, -1), { ...last, volume: last.volume + trade.size }];
-      });
+      setSeries((prev) => addVolume(prev, trade.size));
     }, TRADE_TICK_MS);
     return () => clearInterval(interval);
   }, []);
 
-  const first = candles[0];
-  const change24hPct = first && first.open > 0 ? ((price - first.open) / first.open) * 100 : 0;
-  const high24h = candles.length ? Math.max(...candles.map((c) => c.high)) : price;
-  const low24h = candles.length ? Math.min(...candles.map((c) => c.low)) : price;
+  const candles: Candle[] = series[BASE_GRANULARITY] ?? [];
+  // Computed off the hourly series rather than the minute one: 300 minute bars
+  // is five hours, so a high taken from them would be a five-hour high wearing
+  // a "24h" label.
+  const day = (series[3600] ?? []).slice(-HOURS_IN_DAY);
+  const dayOpen = day[0]?.open ?? 0;
+  const change24hPct = dayOpen > 0 ? ((price - dayOpen) / dayOpen) * 100 : 0;
+  const high24h = day.length ? Math.max(...day.map((c) => c.high)) : price;
+  const low24h = day.length ? Math.min(...day.map((c) => c.low)) : price;
 
   return {
     symbol,
     price,
     candles,
-    longRangeCandles,
+    series,
     orderbook,
     trades,
     change24hPct,

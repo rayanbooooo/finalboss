@@ -20,6 +20,7 @@ import { useFunding, type FundingTransaction } from "@/hooks/useFunding";
 import type { MarketSnapshot } from "@/types/market";
 import type { ExecuteOrderParams, Position } from "@/types/trading";
 import type { MarketId } from "@/lib/markets";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
 export type PositionsTab = "open" | "history";
 
@@ -31,7 +32,7 @@ export type PositionsTab = "open" | "history";
  */
 export type AccountMode = "demo" | "testnet" | "real";
 
-const ACCOUNT_MODE_KEY = "finalboss:account-mode";
+const ACCOUNT_MODE_KEY = STORAGE_KEYS.accountMode;
 
 export interface LiveAccountStatus {
   /** In a venue-backed mode (testnet or real). */
@@ -87,7 +88,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const [fundingMode, setFundingMode] = useState<FundingMode>(null);
   const { toast } = useToast();
 
-  const { isConnected, isUnlocked } = useExchange();
+  const { isConnected, isUnlocked, testnet } = useExchange();
   const [accountMode, setAccountModeState] = useState<AccountMode>("demo");
   // Restored after mount rather than in the initialiser, so the server and
   // client first render agree.
@@ -108,12 +109,20 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   // A stored venue mode is meaningless once the key is gone, and leaving it
   // set would show an empty "live" account that looks like a real zero balance.
-  const effectiveMode: AccountMode = isConnected ? accountMode : "demo";
+  //
+  // The network check matters just as much. A mode restored from a previous
+  // key is not validated against the current one, so a stored "real" alongside
+  // a testnet key used to render the red REAL FUNDS badge over testnet data,
+  // while the "Real funds" button sat simultaneously selected and disabled -
+  // the exact state that reads as "I can't switch".
+  const modeMatchesKey = accountMode === "demo" || (accountMode === "testnet") === testnet;
+  const effectiveMode: AccountMode = isConnected && modeMatchesKey ? accountMode : "demo";
   const liveActive = effectiveMode !== "demo";
 
   const setAccountMode = useCallback(
     (mode: AccountMode) => {
       if (mode !== "demo" && !isConnected) return;
+      if (mode !== "demo" && (mode === "testnet") !== testnet) return;
       setAccountModeState(mode);
       try {
         window.localStorage.setItem(ACCOUNT_MODE_KEY, mode);
@@ -121,7 +130,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         // Not persisting only means it resets to demo next visit.
       }
     },
-    [isConnected]
+    [isConnected, testnet]
   );
 
   const liveAccount = useLiveAccount(liveActive);

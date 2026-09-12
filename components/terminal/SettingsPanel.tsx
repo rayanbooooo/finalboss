@@ -7,6 +7,7 @@ import { LogOut, RotateCcw } from "lucide-react";
 import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { ExchangePanel } from "@/components/terminal/ExchangePanel";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useSignOut } from "@/hooks/useSignOut";
 import { useToast } from "@/contexts/ToastContext";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { Button, buttonVariants } from "@/components/ui/Button";
@@ -29,7 +30,8 @@ const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
 ];
 
 export function SettingsPanel() {
-  const { profile, userId, isResolved, updateProfile, signOut } = useOnboarding();
+  const { profile, userId, isResolved, updateProfile } = useOnboarding();
+  const { signOut, signingOut } = useSignOut();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -84,9 +86,9 @@ export function SettingsPanel() {
             <Link href="/signup" className={cn(buttonVariants("primary", "lg"))}>
               Create a profile
             </Link>
-            <Button variant="outline" size="lg" onClick={signOut}>
+            <Button variant="outline" size="lg" onClick={signOut} disabled={signingOut}>
               <LogOut className="h-4 w-4" />
-              Sign out
+              {signingOut ? "Signing out…" : "Sign out"}
             </Button>
           </div>
         </div>
@@ -199,11 +201,17 @@ export function SettingsPanel() {
         <Button variant="primary" size="lg" onClick={handleSave} disabled={!dirty || saving}>
           {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
         </Button>
-        <Button variant="outline" size="lg" onClick={signOut}>
+        {/* Labelled for the thing people actually come here to do. Sign-out now
+            lands on the sign-in page, so this really is a switch. */}
+        <Button variant="outline" size="lg" onClick={signOut} disabled={signingOut}>
           <LogOut className="h-4 w-4" />
-          Sign out
+          {signingOut ? "Signing out…" : "Sign out / switch account"}
         </Button>
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-white/35">
+        Signing out clears this browser&apos;s saved profile, demo positions and
+        balance, and locks any connected exchange key.
+      </p>
     </div>
   );
 }

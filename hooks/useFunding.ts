@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
 
 export interface FundingTransaction {
   id: string;
@@ -21,7 +22,7 @@ interface FundingRow {
   created_at: string;
 }
 
-const STORAGE_KEY = "finalboss:funding";
+const STORAGE_KEY = STORAGE_KEYS.funding;
 /** Every account opens with demo funds - there is no real money here. */
 export const STARTING_DEMO_FUNDS = 10_000;
 export const DEMO_FUNDS_NOTE = "Starting demo funds";
@@ -55,6 +56,9 @@ export function useFunding(userId: string | null) {
 
   const storeKey = userId ?? "local";
   const restored = restoredFor === storeKey;
+  // Scoped to the account, so a second person signing in on this browser
+  // starts with their own demo balance rather than inheriting the last one.
+  const localKey = scopedKey(STORAGE_KEY, userId);
 
   const record = useCallback(
     (kind: FundingTransaction["kind"], amount: number, note?: string) => {
@@ -112,10 +116,10 @@ export function useFunding(userId: string | null) {
 
     const raf = requestAnimationFrame(() => {
       try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
+        const raw = window.localStorage.getItem(localKey);
         setTransactions(raw ? (JSON.parse(raw) as FundingTransaction[]) : []);
       } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(localKey);
       }
       setRestoredFor(storeKey);
     });
@@ -123,16 +127,16 @@ export function useFunding(userId: string | null) {
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-  }, [remote, storeKey]);
+  }, [remote, storeKey, localKey]);
 
   useEffect(() => {
     if (!restored || remote) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+      window.localStorage.setItem(localKey, JSON.stringify(transactions));
     } catch {
       // Storage full or blocked - the session still works from memory.
     }
-  }, [transactions, restored, remote]);
+  }, [transactions, restored, remote, localKey]);
 
   // A brand new account has nothing to trade with until it's funded.
   useEffect(() => {

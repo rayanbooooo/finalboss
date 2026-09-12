@@ -2,6 +2,7 @@
 
 import { LogOut } from "lucide-react";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useSignOut } from "@/hooks/useSignOut";
 
 /**
  * Shown when a user is onboarded via the local profile (email signup, no
@@ -9,7 +10,8 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
  * distinctly from a real wallet connection.
  */
 export function AccountBadge() {
-  const { profile, signOut } = useOnboarding();
+  const { profile } = useOnboarding();
+  const { signOut, signingOut } = useSignOut();
 
   if (!profile) return null;
 
@@ -22,8 +24,13 @@ export function AccountBadge() {
       <button
         type="button"
         onClick={signOut}
-        aria-label="Sign out"
-        className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-violet-300/70 hover:bg-violet-500/20 hover:text-violet-200"
+        disabled={signingOut}
+        // Named for what it does rather than for the glyph: this ends the
+        // FinalBoss session, which is a different thing from the wallet badge's
+        // disconnect sitting next to it.
+        aria-label="Sign out of FinalBoss"
+        title="Sign out"
+        className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-violet-300/70 hover:bg-violet-500/20 hover:text-violet-200 disabled:opacity-50"
       >
         <LogOut className="h-3.5 w-3.5" />
       </button>

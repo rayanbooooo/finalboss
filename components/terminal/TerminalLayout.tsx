@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { MarketHeader } from "@/components/terminal/MarketHeader";
 import { TradingChart } from "@/components/terminal/TradingChart";
 import { ChartControls } from "@/components/terminal/ChartControls";
@@ -14,9 +15,10 @@ import { OrderForm } from "@/components/terminal/OrderForm";
 import { BalancesPanel } from "@/components/terminal/BalancesPanel";
 import { PositionsPanel } from "@/components/terminal/PositionsPanel";
 import { GuidedTour } from "@/components/terminal/GuidedTour";
-import { aggregateCandles, DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
+import { DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
+import { cn } from "@/lib/utils";
 
 /**
  * Mobile stacks Chart -> Order Form -> Order Book/Trades tabs -> Positions
@@ -25,15 +27,23 @@ import type { PositionWithPnl } from "@/hooks/usePositions";
  */
 export function TerminalLayout() {
   const { market, activeMarketId, openPositions } = useTerminal();
+  const { requestSeries } = useGlobalMarketFeed();
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const [chartExpanded, setChartExpanded] = useState(false);
-  const sourceCandles = timeframe.source === "coarse" ? market.longRangeCandles : market.candles;
+
+  // Each timeframe is fetched at its own native granularity. Asking here rather
+  // than in the click handler covers the first paint and a market switch too,
+  // and the request is idempotent per (market, granularity).
+  useEffect(() => {
+    requestSeries(activeMarketId, timeframe.granularity);
+  }, [requestSeries, activeMarketId, timeframe.granularity]);
+
+  const displayCandles = market.series[timeframe.granularity];
   // The data source is part of the series identity. Without it the chart sees
-  // "BTC:1m" before and after the feed goes live, decides it is the same
+  // "BTC:60" before and after the feed goes live, decides it is the same
   // dataset, and patches only the last bar - splicing one real candle onto the
   // simulator's history and drawing a vertical spike that never happened.
-  const seriesKey = `${activeMarketId}:${timeframe.label}:${market.isLive ? "live" : "sim"}`;
-  const displayCandles = aggregateCandles(sourceCandles, timeframe.bucketMs);
+  const seriesKey = `${activeMarketId}:${timeframe.granularity}:${market.isLive ? "live" : "sim"}`;
 
   useEffect(() => {
     if (!chartExpanded) return undefined;
@@ -129,7 +139,10 @@ interface ChartPanelProps {
   onTimeframeChange: (timeframe: Timeframe) => void;
   expanded: boolean;
   onToggleExpand: () => void;
-  candles: Candle[];
+  /** Undefined while this timeframe's series is still being fetched. Rendering
+   * an empty array instead would draw a blank chart that looks like a market
+   * with no history rather than one still loading. */
+  candles: Candle[] | undefined;
   currentPrice: number;
   positions: PositionWithPnl[];
   seriesKey: string;
@@ -145,6 +158,10 @@ function ChartPanel({
   positions,
   seriesKey,
 }: ChartPanelProps) {
+  const heightClassName = expanded
+    ? "h-[calc(100vh-6rem)]"
+    : "h-[420px] sm:h-[560px] lg:h-full";
+
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
@@ -153,20 +170,31 @@ function ChartPanel({
           type="button"
           onClick={onToggleExpand}
           aria-label={expanded ? "Exit fullscreen" : "Expand chart"}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
+          className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
         >
           {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       </div>
-      <TradingChart
-        candles={candles}
-        currentPrice={currentPrice}
-        positions={positions}
-        seriesKey={seriesKey}
-        heightClassName={
-          expanded ? "h-[calc(100vh-6rem)]" : "h-[420px] sm:h-[560px] lg:h-full"
-        }
-      />
+      {candles === undefined ? (
+        <div
+          className={cn(
+            "flex items-center justify-center rounded-xl border border-white/5 bg-white/[0.02]",
+            heightClassName
+          )}
+        >
+          <span className="animate-pulse text-sm text-white/40">
+            Loading {timeframe.label} history…
+          </span>
+        </div>
+      ) : (
+        <TradingChart
+          candles={candles}
+          currentPrice={currentPrice}
+          positions={positions}
+          seriesKey={seriesKey}
+          heightClassName={heightClassName}
+        />
+      )}
     </>
   );
 }

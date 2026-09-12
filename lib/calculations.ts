@@ -22,29 +22,35 @@ export function calcSma(candles: Candle[], period = SMA_PERIOD): (number | null)
  * risk engine.
  */
 /**
- * Maintenance margin, as a fraction of the position's notional - the standard
- * formulation every real venue uses. Liquidation sits at
- * `initial margin - maintenance margin`, i.e. `1/leverage - this`.
+ * The share of the margin that is gone by the time a position is liquidated.
+ * The remainder is the buffer a venue keeps back to cover fees and slippage on
+ * the forced close, so the account doesn't go negative.
  *
- * 0.03% is calibrated against Aark's live 1000x product: their liquidation
- * price sits 0.070% from entry, which is exactly 0.1% initial margin at 1000x
- * minus this.
+ * Calibrated to the brief: $50 from entry at 1000x and $100 at 500x on BTC.
+ * Those are the same fraction of margin - at BTC $77,200 the margin is $77.20
+ * at 1000x and $154.40 at 500x, and $50 and $100 are both 64.77% of it - so a
+ * single constant satisfies both targets and the dollar distance halves exactly
+ * as leverage doubles. Every leverage in between falls out of the same curve
+ * rather than an interpolation table.
  *
- * An earlier version used 0.5%, which crossed 1/leverage at 200x and put the
- * liquidation price on the wrong side of entry - liquidating every position
- * above 200x the instant it opened. The fix then was to express maintenance
- * as a share of margin instead; the real problem was simply that 0.5% is far
- * too large for a venue offering this much leverage. At 0.03% the standard
- * formula holds until 3,333x, well past anything on offer here, and the clamp
- * below makes the degenerate case impossible rather than merely unlikely.
+ * Expressed as a share of *margin* rather than of notional, which is what makes
+ * it the same percentage on every symbol: the distance is 0.65/leverage of the
+ * entry price whether that price is BTC's or DOGE's.
+ *
+ * Two earlier versions got this wrong in opposite directions. 0.5% of notional
+ * crossed 1/leverage at 200x and put the liquidation price on the wrong side of
+ * entry; 0.03% of notional was right in shape but left the distance too far.
+ * This formulation cannot produce either failure: 0.65/leverage is always
+ * positive and always below 1/leverage, so liquidation is always between entry
+ * and total loss of margin, by construction rather than by clamp.
  */
-const MAINTENANCE_MARGIN_RATIO = 0.0003;
+const LIQUIDATION_MARGIN_FRACTION = 0.65;
 
 /** How far price can move against a position before it's liquidated, as a
  * fraction of the entry price. */
 function liquidationMove(leverage: number): number {
   if (!Number.isFinite(leverage) || leverage <= 0) return 0;
-  return Math.max(0, 1 / leverage - MAINTENANCE_MARGIN_RATIO);
+  return LIQUIDATION_MARGIN_FRACTION / leverage;
 }
 
 export function calcLiquidationPrice(

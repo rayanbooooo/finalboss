@@ -15,9 +15,13 @@ export function TerminalGate({ children }: { children: ReactNode }) {
   const { isOnboarded, isResolved } = useOnboarding();
   const router = useRouter();
 
+  // Sign-in rather than sign-up: arriving here without a session usually means
+  // a session ended, and answering that by opening the create-an-account wizard
+  // made signing out look like it had wiped the account. The sign-in page links
+  // onward to sign-up for people who genuinely need it.
   useEffect(() => {
     if (isResolved && !isOnboarded) {
-      router.replace("/signup");
+      router.replace("/signin");
     }
   }, [isResolved, isOnboarded, router]);
 

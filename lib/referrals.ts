@@ -8,11 +8,12 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
+import { STORAGE_KEYS } from "@/lib/storageKeys";
 
 /** Where a code picked up from a /r/<code> link waits until there's a session
  * to attribute it to. Signing up usually involves leaving for an inbox, so it
  * has to survive that. */
-const PENDING_KEY = "finalboss:pending-referral";
+const PENDING_KEY = STORAGE_KEYS.pendingReferral;
 
 /** No 0/O/1/I: these get read off a screen and typed by hand. */
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
