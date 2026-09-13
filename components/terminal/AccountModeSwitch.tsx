@@ -20,16 +20,20 @@ const OPTIONS: { value: AccountMode; label: string; needsKey: boolean }[] = [
 ];
 
 /** What stands between the user and this mode, if anything. */
-type Blocker = "none" | "no-key" | "locked" | "wrong-network" | "pending";
+type Blocker = "none" | "no-key" | "locked" | "wrong-network" | "pending" | "load-error";
 
 export function AccountModeSwitch() {
   const { accountMode, setAccountMode } = useTerminal();
-  const { isConnected, isUnlocked, sessionOnly, testnet, ready, openConnect, openUnlock } =
+  const { isConnected, isUnlocked, sessionOnly, testnet, ready, loadError, openConnect, openUnlock } =
     useExchange();
 
   function blockerFor(option: (typeof OPTIONS)[number]): Blocker {
     if (!option.needsKey) return "none";
     if (!ready) return "pending";
+    // Ordered before the no-key check on purpose: a lookup that failed is not
+    // the same as an account with no key, and saying "connect one" to someone
+    // who already has one is how a backend outage reads as user error.
+    if (loadError && !isConnected) return "load-error";
     if (!isConnected) return "no-key";
     // A testnet key can't trade the real book and vice versa, so only the
     // network this key belongs to is offered.
@@ -44,7 +48,9 @@ export function AccountModeSwitch() {
     // explanation in a `title` tooltip - which does not exist on a touch
     // device, so tapping "Real funds" on a phone did nothing at all, silently,
     // and there was no route from here to the connect flow in the first place.
-    if (blocker === "no-key") return openConnect();
+    // A session-only key still works while the lookup is failing, so this
+    // stays actionable rather than dead.
+    if (blocker === "no-key" || blocker === "load-error") return openConnect();
     if (blocker === "locked") return openUnlock();
     if (blocker === "none") return setAccountMode(option.value);
   }
@@ -56,11 +62,13 @@ export function AccountModeSwitch() {
   // way of the venue modes. no-key and locked apply to both equally.
   const venueBlocker = OPTIONS.filter((option) => option.needsKey)
     .map(blockerFor)
-    .find((blocker) => blocker === "no-key" || blocker === "locked");
-  const caption = captionFor(
-    activeBlocker !== "none" ? activeBlocker : (venueBlocker ?? "none"),
-    testnet
-  );
+    .find(
+      (blocker) =>
+        blocker === "no-key" || blocker === "locked" || blocker === "load-error"
+    );
+  const shownBlocker = activeBlocker !== "none" ? activeBlocker : (venueBlocker ?? "none");
+  const hasLoadError = shownBlocker === "load-error";
+  const caption = captionFor(shownBlocker, testnet);
 
   return (
     <div className="flex w-full flex-col gap-1 lg:w-auto">
@@ -95,7 +103,9 @@ export function AccountModeSwitch() {
               )}
             >
               {option.label}
-              {blocker === "no-key" && <Plus className="h-3 w-3 opacity-70" />}
+              {(blocker === "no-key" || blocker === "load-error") && (
+                <Plus className="h-3 w-3 opacity-70" />
+              )}
               {blocker === "locked" && <Lock className="h-3 w-3 opacity-70" />}
             </button>
           );
@@ -105,7 +115,12 @@ export function AccountModeSwitch() {
       {/* Rendered text rather than a `title`: tooltips never appear on touch,
           which is where this control is hardest to figure out. */}
       {caption && (
-        <p className="px-0.5 text-[11px] leading-snug text-white/40 lg:max-w-[15rem]">
+        <p
+          className={cn(
+            "px-0.5 text-[11px] leading-snug lg:max-w-[15rem]",
+            hasLoadError ? "text-amber-300/80" : "text-white/40"
+          )}
+        >
           {caption}
         </p>
       )}
@@ -115,6 +130,8 @@ export function AccountModeSwitch() {
 
 function captionFor(blocker: Blocker, testnet: boolean): string | null {
   switch (blocker) {
+    case "load-error":
+      return "Couldn't check for a saved key — the account service isn't reachable.";
     case "no-key":
       return "Connect a Bybit key to trade your own account.";
     case "locked":

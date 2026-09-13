@@ -57,6 +57,15 @@ interface ExchangeContextValue {
   testnet: boolean;
   permissions: KeyPermissions | null;
   ready: boolean;
+  /**
+   * Why the saved-key lookup failed, when it did.
+   *
+   * Previously the query's error was folded straight into "no row", so a
+   * backend failure was indistinguishable from a user who had simply never
+   * connected a key - which is how a missing `exchange_credentials` table sat
+   * in production looking like an empty state instead of an outage.
+   */
+  loadError: string | null;
 
   /**
    * Connect/unlock modal visibility.
@@ -96,6 +105,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
   const [unlockedAt, setUnlockedAt] = useState<number | null>(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [unlockOpen, setUnlockOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const isUnlocked = unlockedAt !== null;
 
@@ -148,6 +158,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
           // disconnect a user who deliberately chose not to save their key.
           setConnection((current) => (current?.id === "session" ? current : null));
         }
+        setLoadError(null);
         setReady(true);
       });
       return () => {
@@ -168,6 +179,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
           setPermissions(null);
           setSessionOnly(false);
         }
+        setLoadError(error ? error.message : null);
         const row = !error && data?.[0];
         setConnection(
           row
@@ -356,6 +368,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       testnet,
       permissions,
       ready,
+      loadError,
       connectOpen,
       unlockOpen,
       openConnect,
@@ -375,6 +388,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       testnet,
       permissions,
       ready,
+      loadError,
       connectOpen,
       unlockOpen,
       openConnect,

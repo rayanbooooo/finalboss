@@ -105,7 +105,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     async function loadProfile(id: string, email: string | undefined) {
       const { data, error } = await supabase!
         .from("profiles")
-        .select("display_name, method, experience_level, risk_tolerance, default_leverage")
+        .select("display_name, method, experience_level, risk_tolerance, default_leverage, referral_code")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
@@ -126,6 +126,20 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           defaultLeverage: data.default_leverage,
           createdAt: Date.now(),
         });
+        // A code is generated below when the row is created, so a row that
+        // predates the referrals migration has none - and nothing else ever
+        // writes one, leaving the affiliates dashboard showing a dash for the
+        // life of the account. Fill the gap on read.
+        if (!data.referral_code) {
+          const { error: codeError } = await supabase!
+            .from("profiles")
+            .update({ referral_code: generateReferralCode() })
+            .eq("id", id)
+            .is("referral_code", null);
+          if (codeError) {
+            console.error("Could not assign a referral code:", codeError.message);
+          }
+        }
         return;
       }
 

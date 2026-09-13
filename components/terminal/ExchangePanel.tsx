@@ -17,6 +17,7 @@ export function ExchangePanel() {
     lock,
     openConnect,
     openUnlock,
+    loadError,
   } = useExchange();
   const { toast } = useToast();
 
@@ -35,6 +36,16 @@ export function ExchangePanel() {
           </Badge>
         )}
       </div>
+
+      {/* A failed lookup is not an empty state. Without this the panel invites
+          you to connect a key you may already have, and any save attempt fails
+          for the same underlying reason. */}
+      {loadError && (
+        <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed text-amber-200">
+          Couldn&apos;t check whether you have a saved key: {loadError}. A key
+          connected now will work for this session but may not save.
+        </p>
+      )}
 
       {!isConnected ? (
         <>
