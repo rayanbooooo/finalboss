@@ -11,6 +11,9 @@ export interface MarketConfig {
   /** Same market at Bybit, used when trading a connected exchange account.
    * Their perpetuals are USDT-settled and named without a separator. */
   bybitSymbol: string;
+  /** Where the simulator starts and mean-reverts to when the feed is
+   * unreachable. A stale value is what a user actually sees during an outage,
+   * so these are refreshed rather than left at whatever they were on day one. */
   seedPrice: number;
 }
 
@@ -22,7 +25,7 @@ export const MARKETS: MarketConfig[] = [
     name: "Bitcoin",
     coinbaseProductId: "BTC-USD",
     bybitSymbol: "BTCUSDT",
-    seedPrice: 68000,
+    seedPrice: 76800,
   },
   {
     id: "ETH",
@@ -40,7 +43,7 @@ export const MARKETS: MarketConfig[] = [
     name: "Solana",
     coinbaseProductId: "SOL-USD",
     bybitSymbol: "SOLUSDT",
-    seedPrice: 145,
+    seedPrice: 100,
   },
   {
     id: "XRP",
@@ -49,7 +52,7 @@ export const MARKETS: MarketConfig[] = [
     name: "XRP",
     coinbaseProductId: "XRP-USD",
     bybitSymbol: "XRPUSDT",
-    seedPrice: 0.55,
+    seedPrice: 1.35,
   },
   {
     id: "DOGE",
@@ -58,7 +61,7 @@ export const MARKETS: MarketConfig[] = [
     name: "Dogecoin",
     coinbaseProductId: "DOGE-USD",
     bybitSymbol: "DOGEUSDT",
-    seedPrice: 0.12,
+    seedPrice: 0.083,
   },
 ];
 

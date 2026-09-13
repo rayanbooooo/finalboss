@@ -21,10 +21,6 @@ import { BASE_GRANULARITY, granularityMs, type Granularity } from "@/lib/timefra
 const CONNECT_TIMEOUT_MS = 8000;
 const RECONNECT_DELAY_MS = 12_000;
 const MAX_LIVE_TRADES = 40;
-/** The base series backs the default chart view, so it is worth a second
- * request to double its depth from five hours to ten. Everything coarser is
- * already deep enough in one page. */
-const BASE_PAGES = 2;
 
 interface LiveState {
   /** The websocket is delivering right now. Drives the LIVE/SIMULATED badge. */
@@ -118,7 +114,10 @@ export interface MultiMarketFeed {
 }
 
 /**
- * One shared Coinbase feed for every market in lib/markets.ts. Each market
+ * One shared Bybit feed for every market in lib/markets.ts - the same venue the
+ * terminal places orders on, so the chart and the fill refer to the same
+ * instrument. Bybit returns up to 1000 bars per request, so no timeframe needs
+ * paging. Each market
  * also keeps its own client-side simulator (useMarketSimulator) running the
  * whole time as a hot fallback - cheap, and it means an unreachable feed
  * degrades that market gracefully instead of freezing it.
@@ -144,8 +143,7 @@ export function useMultiMarketFeed(): MultiMarketFeed {
     if (!market) return;
     requestedRef.current.add(key);
 
-    const pages = granularity === BASE_GRANULARITY ? BASE_PAGES : 1;
-    fetchHistoricalCandles(market.coinbaseProductId, granularity, pages)
+    fetchHistoricalCandles(market.bybitSymbol, granularity)
       .then((candles) => {
         if (candles.length === 0) return;
         setLive((prev) => ({
@@ -208,8 +206,8 @@ export function useMultiMarketFeed(): MultiMarketFeed {
       await Promise.allSettled(
         MARKETS.map(async (market) => {
           const [candles, stats] = await Promise.all([
-            fetchHistoricalCandles(market.coinbaseProductId, BASE_GRANULARITY, BASE_PAGES),
-            fetchProductStats(market.coinbaseProductId),
+            fetchHistoricalCandles(market.bybitSymbol, BASE_GRANULARITY),
+            fetchProductStats(market.bybitSymbol),
           ]);
           if (cancelled || candles.length === 0) return;
           requestedRef.current.add(`${market.id}:${BASE_GRANULARITY}`);
@@ -243,19 +241,19 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         if (granularity !== BASE_GRANULARITY) requestSeries(marketId, granularity);
       });
 
-      const productIds = MARKETS.map((m) => m.coinbaseProductId);
-      const idByProduct = new Map(MARKETS.map((m) => [m.coinbaseProductId, m.id]));
+      const symbols = MARKETS.map((m) => m.bybitSymbol);
+      const idBySymbol = new Map(MARKETS.map((m) => [m.bybitSymbol, m.id]));
 
       timeoutId = setTimeout(() => {
         if (receivedFor.size === 0) closeSocket?.();
       }, CONNECT_TIMEOUT_MS);
 
-      closeSocket = connectMultiMarketFeed(productIds, {
-        onTicker: (productId, ticker) => {
+      closeSocket = connectMultiMarketFeed(symbols, {
+        onTicker: (symbol, ticker) => {
           if (cancelled) return;
-          const id = idByProduct.get(productId);
+          const id = idBySymbol.get(symbol);
           if (!id) return;
-          receivedFor.add(productId);
+          receivedFor.add(symbol);
           setLive((prev) => ({
             ...prev,
             [id]: {
@@ -270,11 +268,11 @@ export function useMultiMarketFeed(): MultiMarketFeed {
             },
           }));
         },
-        onMatch: (productId, trade) => {
+        onMatch: (symbol, trade) => {
           if (cancelled) return;
-          const id = idByProduct.get(productId);
+          const id = idBySymbol.get(symbol);
           if (!id) return;
-          receivedFor.add(productId);
+          receivedFor.add(symbol);
           setLive((prev) => ({
             ...prev,
             [id]: {
@@ -284,16 +282,16 @@ export function useMultiMarketFeed(): MultiMarketFeed {
             },
           }));
         },
-        onBookSnapshot: (productId, book) => {
+        onBookSnapshot: (symbol, book) => {
           if (cancelled) return;
-          const id = idByProduct.get(productId);
+          const id = idBySymbol.get(symbol);
           if (!id) return;
-          receivedFor.add(productId);
+          receivedFor.add(symbol);
           setLive((prev) => ({ ...prev, [id]: { ...prev[id], orderbook: book } }));
         },
-        onBookUpdate: (productId, book) => {
+        onBookUpdate: (symbol, book) => {
           if (cancelled) return;
-          const id = idByProduct.get(productId);
+          const id = idBySymbol.get(symbol);
           if (!id) return;
           setLive((prev) => ({ ...prev, [id]: { ...prev[id], orderbook: book } }));
         },
