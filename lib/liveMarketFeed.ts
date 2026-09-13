@@ -180,6 +180,58 @@ export interface TickerUpdate {
   volume24h: number;
 }
 
+/** How often the polling fallback re-reads the tickers endpoint. */
+const TICKER_POLL_MS = 6_000;
+
+/**
+ * Polls the tickers endpoint as a stand-in for the websocket.
+ *
+ * Every REST call in this file falls back to a same-origin proxy when the
+ * browser cannot reach Bybit directly. A websocket cannot do that - there is
+ * nothing to proxy it through on a serverless host. So a visitor in a country
+ * Bybit refuses gets real history through the proxy and then a price frozen at
+ * the last close: a chart that looks live and is not. Polling the same proxy
+ * keeps the price moving for them.
+ *
+ * The proxy is served through a few seconds of shared CDN cache, so concurrent
+ * visitors collapse onto roughly one upstream request per symbol per interval
+ * rather than one each.
+ */
+export function startTickerPolling(
+  symbols: string[],
+  onTicker: (symbol: string, data: TickerUpdate) => void
+): () => void {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  async function round() {
+    // Chained timeouts rather than setInterval: a slow or hanging round trip
+    // must not let the next poll start on top of the one still in flight.
+    await Promise.allSettled(
+      symbols.map(async (symbol) => {
+        const stats = await fetchProductStats(symbol);
+        if (stopped || !stats || stats.last <= 0) return;
+        onTicker(symbol, {
+          price: stats.last,
+          open24h: stats.open24h,
+          high24h: stats.high24h,
+          low24h: stats.low24h,
+          volume24h: stats.volume24h,
+        });
+      })
+    );
+    if (stopped) return;
+    timer = setTimeout(round, TICKER_POLL_MS);
+  }
+
+  void round();
+
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  };
+}
+
 interface MultiMarketFeedHandlers {
   onOpen?: () => void;
   onTicker?: (symbol: string, data: TickerUpdate) => void;

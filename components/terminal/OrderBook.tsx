@@ -43,7 +43,9 @@ export function OrderBook() {
 
       {awaitingBook && (
         <div className="px-3 py-6 text-center text-white/40">
-          {market.isLive ? "Waiting for the order book…" : "Order book unavailable — feed offline."}
+          {market.isStreaming
+            ? "Waiting for the order book…"
+            : "Order book unavailable — feed offline."}
         </div>
       )}
 

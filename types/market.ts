@@ -40,9 +40,9 @@ export type CandleSeries = Record<number, Candle[] | undefined>;
 export interface MarketSnapshot {
   symbol: string;
   price: number;
-  /** The base (1-minute) series, and the same array as `series[60]`. Its own
-   * field because the sparklines and 24h stats always want the finest bars and
-   * shouldn't have to reason about granularity keys. */
+  /** The base series, and the same array as `series[BASE_GRANULARITY]`. Its own
+   * field because the landing sparklines always want whichever series is kept
+   * loaded and shouldn't have to reason about granularity keys. */
   candles: Candle[];
   series: CandleSeries;
   orderbook: OrderBookSnapshot;
@@ -51,7 +51,22 @@ export interface MarketSnapshot {
   high24h: number;
   low24h: number;
   volume24h: number;
-  /** True when price/orderbook/trades come from the real Coinbase feed
-   * rather than the client-side simulator (e.g. feed unreachable). */
+  /**
+   * True when these prices are real Bybit data rather than the client-side
+   * simulator. This is what the LIVE / SIMULATED badge means, and the terms
+   * page describes it in exactly those terms: whose numbers these are, not how
+   * fast they arrive.
+   */
   isLive: boolean;
+  /**
+   * True only while the websocket is delivering.
+   *
+   * Separate from `isLive` because a dropped socket does not make real candles
+   * synthetic. Real data reaching us by a six-second REST poll - the fallback
+   * for visitors Bybit will not stream to - is still real, and labelling it
+   * SIMULATED was a lie in the direction of scaring people off their own
+   * chart. Use this only for things that genuinely depend on a live stream,
+   * like the order book.
+   */
+  isStreaming: boolean;
 }

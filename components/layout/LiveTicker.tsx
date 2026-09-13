@@ -19,7 +19,7 @@ export function LiveTicker() {
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          activeMarket.isLive ? "animate-pulse-glow bg-emerald-400" : "bg-white/25"
+          activeMarket.isStreaming ? "animate-pulse-glow bg-emerald-400" : "bg-white/25"
         )}
       />
       <CryptoIcon symbol={config.icon} className="h-3.5 w-3.5" />

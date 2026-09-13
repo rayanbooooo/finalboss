@@ -21,8 +21,13 @@ const TRADE_TICK_MS = 900;
 const MAX_TRADES = 40;
 const VOLUME_BASELINE_FACTOR = 2650;
 /** Matches the live path's per-request cap, so a simulated timeframe spans the
- * same range as the real one it stands in for. */
-const SIM_BARS = 300;
+ * same range as the real one it stands in for.
+ *
+ * It said the same thing at 300, which was Coinbase's cap and went stale when
+ * the feed moved to Bybit. That left the fallback's default view five hours
+ * deep against the live path's ten days - and since production could not reach
+ * Bybit at all, five hours was what everybody actually saw. */
+const SIM_BARS = 1000;
 /** Hourly bars, so a "24h" figure is actually computed over 24 hours. */
 const HOURS_IN_DAY = 24;
 
@@ -199,5 +204,6 @@ export function useMarketSimulator(
     low24h,
     volume24h,
     isLive: false,
+    isStreaming: false,
   };
 }

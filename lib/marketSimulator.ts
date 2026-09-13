@@ -100,6 +100,16 @@ export function generateInitialCandles(
  * Mutates the in-progress (last) candle with a new tick, or rolls a new
  * candle when the interval boundary has passed.
  */
+/**
+ * Ceiling on how many bars a series keeps.
+ *
+ * Above the 1000 bars Bybit returns per request, because this rolls real
+ * series too: at 500 a freshly fetched 1000-bar history was cut in half the
+ * moment the first bar rolled over, silently halving every timeframe's depth
+ * a minute or two after it loaded.
+ */
+const MAX_SERIES_BARS = 1200;
+
 export function nextCandle(
   candles: Candle[],
   price: number,
@@ -117,7 +127,9 @@ export function nextCandle(
       ...candles,
       { time: Date.now(), open: last.close, high: price, low: price, close: price, volume: 0 },
     ];
-    return rolled.length > 500 ? rolled.slice(rolled.length - 500) : rolled;
+    return rolled.length > MAX_SERIES_BARS
+      ? rolled.slice(rolled.length - MAX_SERIES_BARS)
+      : rolled;
   }
 
   const updated: Candle = {

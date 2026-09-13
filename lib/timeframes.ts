@@ -30,11 +30,27 @@ export const TIMEFRAMES: Timeframe[] = [
   { label: "1D", granularity: 86400 }, //   2.7 years
 ];
 
-export const DEFAULT_TIMEFRAME = TIMEFRAMES[0];
+/**
+ * 15m, so the chart opens on 10.4 days of history.
+ *
+ * It used to open on 1m, which is 16.7 hours at best and - because production
+ * could not reach Bybit at all and fell back to a 300-bar simulator - about
+ * five hours in practice. A window that short cannot show a trend, which is
+ * the whole reason to look at a chart before sizing a position. 1m is still
+ * one click away in the picker.
+ */
+export const DEFAULT_TIMEFRAME: Timeframe = TIMEFRAMES[2];
 
-/** The series every market keeps loaded: it backs the default chart view, the
- * landing-page sparklines and the 24h high/low, so it is never fetched lazily. */
-export const BASE_GRANULARITY: Granularity = 60;
+/**
+ * The series every market keeps loaded: it backs the default chart view, the
+ * landing-page sparklines and the 24h high/low, so it is never fetched lazily.
+ *
+ * It has to stay equal to DEFAULT_TIMEFRAME.granularity. Coarser timeframes
+ * load through the lazy path (useMultiMarketFeed.requestSeries), so if the two
+ * disagree the chart's own first paint is the one thing waiting on a round
+ * trip - an empty chart on the screen people land on.
+ */
+export const BASE_GRANULARITY: Granularity = DEFAULT_TIMEFRAME.granularity;
 
 export function granularityMs(granularity: Granularity): number {
   return granularity * 1000;

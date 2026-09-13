@@ -13,6 +13,8 @@ import {
   connectMultiMarketFeed,
   fetchHistoricalCandles,
   fetchProductStats,
+  startTickerPolling,
+  type TickerUpdate,
 } from "@/lib/liveMarketFeed";
 import { nextCandle } from "@/lib/marketSimulator";
 import { MARKETS, type MarketId } from "@/lib/markets";
@@ -23,13 +25,14 @@ const RECONNECT_DELAY_MS = 12_000;
 const MAX_LIVE_TRADES = 40;
 
 interface LiveState {
-  /** The websocket is delivering right now. Drives the LIVE/SIMULATED badge. */
-  isLive: boolean;
-  /** Real REST history has landed for this market. Separate from `isLive`
+  /** The websocket is delivering right now. Note this is NOT the badge: real
+   * candles stay real after a socket drop. See MarketSnapshot.isStreaming. */
+  isStreaming: boolean;
+  /** Real REST history has landed for this market. Separate from `isStreaming`
    * because they fail independently: after a socket drop we still hold real
    * candles, and replacing them with simulated ones (which is what keying this
-   * off `isLive` used to do) is how a synthetic history gets spliced onto a
-   * real one. */
+   * off the socket used to do) is how a synthetic history gets spliced onto a
+   * real one. It is also what makes the snapshot's `isLive` true. */
   hasHistory: boolean;
   price: number;
   series: CandleSeries;
@@ -43,7 +46,7 @@ interface LiveState {
 
 function emptyLiveState(): LiveState {
   return {
-    isLive: false,
+    isStreaming: false,
     hasHistory: false,
     price: 0,
     series: {},
@@ -59,7 +62,7 @@ function emptyLiveState(): LiveState {
 function markAllOffline(state: Record<MarketId, LiveState>): Record<MarketId, LiveState> {
   const next = { ...state };
   MARKETS.forEach((m) => {
-    next[m.id] = { ...next[m.id], isLive: false };
+    next[m.id] = { ...next[m.id], isStreaming: false };
   });
   return next;
 }
@@ -178,7 +181,30 @@ export function useMultiMarketFeed(): MultiMarketFeed {
     let closeSocket: (() => void) | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let stopPolling: (() => void) | null = null;
     let receivedFor = new Set<string>();
+    const idBySymbol = new Map(MARKETS.map((m) => [m.bybitSymbol, m.id]));
+
+    /** Shared by the socket and the polling fallback so both feed the chart,
+     * the header and the 24h figures through exactly one path. */
+    function applyTicker(symbol: string, ticker: TickerUpdate, streaming: boolean) {
+      if (cancelled) return;
+      const id = idBySymbol.get(symbol);
+      if (!id) return;
+      setLive((prev) => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          isStreaming: streaming,
+          price: ticker.price,
+          open24h: ticker.open24h,
+          high24h: ticker.high24h,
+          low24h: ticker.low24h,
+          volume24h: ticker.volume24h,
+          series: rollIntoSeries(prev[id].series, ticker.price),
+        },
+      }));
+    }
 
     // A single failed/dropped connection attempt used to strand the whole
     // session in the simulator permanently (the connect effect only ran
@@ -191,6 +217,23 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         reconnectTimeoutId = null;
         start();
       }, RECONNECT_DELAY_MS);
+    }
+
+    // The websocket is the only part of the feed with no proxy fallback, so a
+    // visitor Bybit will not serve directly gets real candles and then a price
+    // that never moves again. Polling covers exactly that gap, and the socket
+    // takes over the moment it delivers anything.
+    function beginPolling() {
+      if (cancelled || stopPolling) return;
+      stopPolling = startTickerPolling(
+        MARKETS.map((m) => m.bybitSymbol),
+        (symbol, ticker) => applyTicker(symbol, ticker, false)
+      );
+    }
+
+    function endPolling() {
+      stopPolling?.();
+      stopPolling = null;
     }
 
     async function start() {
@@ -220,7 +263,7 @@ export function useMultiMarketFeed(): MultiMarketFeed {
                 hasHistory: true,
                 // A socket that beat the REST round trip already has a fresher
                 // price; don't walk it back to this snapshot's last close.
-                price: current.isLive ? current.price : candles[candles.length - 1].close,
+                price: current.isStreaming ? current.price : candles[candles.length - 1].close,
                 series: { ...current.series, [BASE_GRANULARITY]: candles },
                 open24h: stats?.open24h ?? current.open24h,
                 high24h: stats?.high24h ?? current.high24h,
@@ -242,7 +285,6 @@ export function useMultiMarketFeed(): MultiMarketFeed {
       });
 
       const symbols = MARKETS.map((m) => m.bybitSymbol);
-      const idBySymbol = new Map(MARKETS.map((m) => [m.bybitSymbol, m.id]));
 
       timeoutId = setTimeout(() => {
         if (receivedFor.size === 0) closeSocket?.();
@@ -251,22 +293,11 @@ export function useMultiMarketFeed(): MultiMarketFeed {
       closeSocket = connectMultiMarketFeed(symbols, {
         onTicker: (symbol, ticker) => {
           if (cancelled) return;
-          const id = idBySymbol.get(symbol);
-          if (!id) return;
+          // The stream is fresher than a six-second poll, so it wins as soon
+          // as it produces anything.
+          endPolling();
           receivedFor.add(symbol);
-          setLive((prev) => ({
-            ...prev,
-            [id]: {
-              ...prev[id],
-              isLive: true,
-              price: ticker.price,
-              open24h: ticker.open24h,
-              high24h: ticker.high24h,
-              low24h: ticker.low24h,
-              volume24h: ticker.volume24h,
-              series: rollIntoSeries(prev[id].series, ticker.price),
-            },
-          }));
+          applyTicker(symbol, ticker, true);
         },
         onMatch: (symbol, trade) => {
           if (cancelled) return;
@@ -298,11 +329,13 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         onError: () => {
           if (cancelled) return;
           setLive(markAllOffline);
+          beginPolling();
           scheduleReconnect();
         },
         onClose: () => {
           if (cancelled) return;
           setLive(markAllOffline);
+          beginPolling();
           scheduleReconnect();
         },
       });
@@ -314,6 +347,7 @@ export function useMultiMarketFeed(): MultiMarketFeed {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+      endPolling();
       closeSocket?.();
     };
   }, [requestSeries]);
@@ -338,7 +372,10 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         high24h: state.high24h,
         low24h: state.low24h,
         volume24h: state.volume24h,
-        isLive: state.isLive,
+        // hasHistory is true in this branch, so every candle and the price are
+        // real Bybit data whatever the socket is doing.
+        isLive: true,
+        isStreaming: state.isStreaming,
       };
     } else {
       markets[market.id] = simulators[market.id];
