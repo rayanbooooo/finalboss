@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { safeRedirect } from "@/lib/navigation";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function SignInForm() {
   const router = useRouter();
+  // Where to go afterwards, so arriving here from the affiliates page sends you
+  // back there rather than to the trading terminal. Validated, never trusted:
+  // this value comes from whoever wrote the link.
+  const destination = safeRedirect(useSearchParams().get("next"));
   const { signInWithEmail, userId } = useOnboarding();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,9 +31,13 @@ export function SignInForm() {
   // anyone off this page - including someone who had just signed out and wanted
   // to come back as a different account. The sign-in page was unreachable even
   // by typing the URL, which is the whole of "I can't switch between accounts".
+  //
+  // This and the push below must stay in step. Both fire on a successful
+  // sign-in - the push first, then this effect once `userId` lands from
+  // onAuthStateChange - so changing one alone means the effect quietly wins.
   useEffect(() => {
-    if (userId) router.replace("/terminal");
-  }, [userId, router]);
+    if (userId) router.replace(destination);
+  }, [userId, router, destination]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,7 +49,7 @@ export function SignInForm() {
       setError(result.error);
       return;
     }
-    router.push("/terminal");
+    router.push(destination);
   };
 
   return (

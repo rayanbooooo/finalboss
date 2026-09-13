@@ -7,15 +7,20 @@ export function AffiliateTiers() {
     <section className="px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <Reveal className="max-w-xl">
-          <span className="font-mono text-xs tracking-wide text-emerald-400/70">
-            [ COMMISSION TIERS ]
+          <span className="font-mono text-xs tracking-wide text-amber-400/80">
+            [ PLANNED COMMISSION TIERS ]
           </span>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Climb the ladder
           </h2>
           <p className="mt-4 text-white/50">
-            The more traders you refer, the higher your commission share
-            climbs.
+            The intended structure: the more traders you refer, the higher your
+            share climbs.
+          </p>
+          {/* Stated once, prominently, rather than buried in each card. */}
+          <p className="mt-3 inline-block rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+            Not active yet — no commission is being earned or paid today.
+            Referrals you make now still count.
           </p>
         </Reveal>
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3">

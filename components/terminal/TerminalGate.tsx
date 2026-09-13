@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Spinner } from "@/components/ui/Spinner";
+import { authLink } from "@/lib/navigation";
 
 /**
  * Client-side gate: /terminal requires a Supabase session, a connected
@@ -14,6 +15,7 @@ import { Spinner } from "@/components/ui/Spinner";
 export function TerminalGate({ children }: { children: ReactNode }) {
   const { isOnboarded, isResolved } = useOnboarding();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Sign-in rather than sign-up: arriving here without a session usually means
   // a session ended, and answering that by opening the create-an-account wizard
@@ -21,9 +23,11 @@ export function TerminalGate({ children }: { children: ReactNode }) {
   // onward to sign-up for people who genuinely need it.
   useEffect(() => {
     if (isResolved && !isOnboarded) {
-      router.replace("/signin");
+      // Carry where they were trying to go, so signing in returns them there
+      // rather than dumping everyone on the trade screen.
+      router.replace(authLink("/signin", pathname));
     }
-  }, [isResolved, isOnboarded, router]);
+  }, [isResolved, isOnboarded, router, pathname]);
 
   if (!isResolved || !isOnboarded) {
     return (

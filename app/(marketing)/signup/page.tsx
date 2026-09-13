@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { OnboardingWizard } from "@/components/signup/OnboardingWizard";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function SignupPage() {
   return (
@@ -11,7 +13,20 @@ export default function SignupPage() {
           Start trading in seconds. No paperwork, no delays.
         </p>
       </div>
-      <OnboardingWizard />
+      {/* The form reads `?next=` with useSearchParams. This route is statically
+          prerendered, and on a prerendered route that hook forces client-side
+          rendering up to the nearest Suspense boundary - Next wants one declared
+          rather than inferred, so the heading above still ships in the initial
+          HTML. */}
+      <Suspense
+        fallback={
+          <div className="flex min-h-[24rem] w-full max-w-md items-center justify-center">
+            <Spinner className="h-7 w-7 text-white/40" />
+          </div>
+        }
+      >
+        <OnboardingWizard />
+      </Suspense>
     </div>
   );
 }

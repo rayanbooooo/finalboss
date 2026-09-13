@@ -91,20 +91,38 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   },
 ];
 
+/**
+ * The PLANNED commission ladder, not an active payout.
+ *
+ * Nothing here pays out today: FinalBoss charges no trading fees, so there is
+ * no revenue to take a share of, and no payout rail exists. The perks used to
+ * promise "Monthly payouts in USDC" and a "Dedicated account manager", which
+ * the signed-in dashboard then contradicted with "Commission earned $0.00".
+ * Every string below now describes either something that is true today
+ * (referral tracking) or something explicitly marked as planned.
+ */
 export const AFFILIATE_TIERS: AffiliateTier[] = [
   {
     id: "bronze",
     name: "Bronze",
-    requirement: "0 – 10 referrals",
+    requirement: "0 - 10 referrals",
     commissionPct: 20,
-    perks: ["20% fee-share commission", "Real-time referral dashboard", "Monthly payouts in USDC"],
+    perks: [
+      "Referrals tracked from your first link",
+      "Live referral dashboard",
+      "Planned: 20% share of fee revenue",
+    ],
   },
   {
     id: "silver",
     name: "Silver",
-    requirement: "11 – 50 referrals",
+    requirement: "11 - 50 referrals",
     commissionPct: 30,
-    perks: ["30% fee-share commission", "Priority support", "Weekly payouts in USDC", "Custom referral codes"],
+    perks: [
+      "Everything in Bronze",
+      "Planned: 30% share of fee revenue",
+      "Planned: custom referral codes",
+    ],
     recommended: true,
   },
   {
@@ -112,7 +130,11 @@ export const AFFILIATE_TIERS: AffiliateTier[] = [
     name: "Gold",
     requirement: "51+ referrals",
     commissionPct: 40,
-    perks: ["40% fee-share commission", "Dedicated account manager", "Instant payouts in USDC", "Co-marketing opportunities"],
+    perks: [
+      "Everything in Silver",
+      "Planned: 40% share of fee revenue",
+      "Planned: co-marketing support",
+    ],
   },
 ];
 
@@ -122,8 +144,3 @@ export const STATS_SEED = {
   dailyLiquidations: 3_950_000,
 };
 
-export const AFFILIATE_STATS_SEED = {
-  totalPaidOut: 12_400_000,
-  activeAffiliates: 6_230,
-  avgCommission: 320,
-};

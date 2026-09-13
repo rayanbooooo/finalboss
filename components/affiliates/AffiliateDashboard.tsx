@@ -11,6 +11,7 @@ import { useClipboard } from "@/hooks/useClipboard";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { fetchReferralSummary, referralLink, type ReferralSummary } from "@/lib/referrals";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { authLink } from "@/lib/navigation";
 import { formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -50,31 +51,45 @@ export function AffiliateDashboard() {
     );
   }
 
-  if (!isSupabaseConfigured) {
-    return (
-      <GlassCard className="mx-auto max-w-2xl p-6 sm:p-8">
-        <h3 className="text-lg font-semibold text-white">Referrals are unavailable</h3>
-        <p className="mt-2 text-sm leading-relaxed text-white/55">
-          This deployment has no backend connected, so referrals can&apos;t be tracked
-          to an account.
-        </p>
-      </GlassCard>
-    );
-  }
-
-  if (!userId) {
+  // Backend down and signed out are different problems with the same answer:
+  // you still need an account, and the way to get one has to stay on screen.
+  //
+  // This used to return early on !isSupabaseConfigured, before the signed-out
+  // branch below, which meant a missing backend removed the sign-in and
+  // create-account buttons entirely and left a dead card. An outage should not
+  // take away the way in.
+  if (!isSupabaseConfigured || !userId) {
     return (
       <GlassCard className="mx-auto max-w-2xl p-6 text-center sm:p-8">
-        <h3 className="text-lg font-semibold text-white">Sign in to get your link</h3>
+        <h3 className="text-lg font-semibold text-white">
+          {isSupabaseConfigured ? "Sign in to get your link" : "Referrals are offline"}
+        </h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/55">
-          A referral link points at your account, so it only exists once you have one.
-          {profile ? " This browser has a local profile, but referrals need a real account." : ""}
+          {isSupabaseConfigured ? (
+            <>
+              A referral link points at your account, so it only exists once you have
+              one.
+              {profile
+                ? " This browser has a local profile, but referrals need a real account."
+                : ""}
+            </>
+          ) : (
+            "This deployment has no backend connected, so links can't be issued or tracked right now. Everything else on this page still applies."
+          )}
         </p>
         <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link href="/signin" className={cn(buttonVariants("primary", "lg"))}>
+          {/* Carry the return path, so signing in from here comes back here
+              rather than dropping you on the trading terminal. */}
+          <Link
+            href={authLink("/signin", "/affiliates")}
+            className={cn(buttonVariants("primary", "lg"))}
+          >
             Sign in
           </Link>
-          <Link href="/signup" className={cn(buttonVariants("outline", "lg"))}>
+          <Link
+            href={authLink("/signup", "/affiliates")}
+            className={cn(buttonVariants("outline", "lg"))}
+          >
             Create an account
           </Link>
         </div>
@@ -96,7 +111,7 @@ export function AffiliateDashboard() {
         <StatCard
           label="Commission earned"
           value="$0.00"
-          note="No fees have been charged yet, so there is nothing to share."
+          note="The site charges no trading fees yet, so there is nothing to share. Your referrals still count."
         />
       </div>
 

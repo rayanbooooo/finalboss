@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { useAccount } from "wagmi";
@@ -15,6 +15,7 @@ import { SuccessState } from "@/components/signup/SuccessState";
 import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSignOut } from "@/hooks/useSignOut";
+import { safeRedirect } from "@/lib/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { truncateAddress } from "@/lib/format";
 import type { ExperienceLevel, OnboardingMethod, RiskTolerance } from "@/types/onboarding";
@@ -43,8 +44,18 @@ const REDIRECT_DELAY_MS = 1600;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+/** Names the destination for the success screen, so it never promises the
+ * terminal to someone being sent back to the affiliates page. */
+function describeDestination(path: string): string {
+  if (path.startsWith("/affiliates")) return "your affiliate dashboard";
+  if (path.startsWith("/terminal")) return "the trading terminal";
+  return "where you left off";
+}
+
 export function OnboardingWizard() {
   const router = useRouter();
+  // Validated, never trusted - it comes from whoever wrote the link.
+  const destination = safeRedirect(useSearchParams().get("next"));
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState<OnboardingMethod>("wallet");
   const [email, setEmail] = useState("");
@@ -62,7 +73,7 @@ export function OnboardingWizard() {
 
   const { isConnected, address } = useAccount();
   const { open: openWalletModal } = useWalletModal();
-  const { markOnboarded, signUpWithEmail, isOnboarded, profile } = useOnboarding();
+  const { markOnboarded, signUpWithEmail, userId, profile } = useOnboarding();
   const { signOut, signingOut } = useSignOut();
 
   const [prevIsConnected, setPrevIsConnected] = useState(isConnected);
@@ -76,13 +87,13 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (!done) return undefined;
     const timeout = setTimeout(() => {
-      router.push("/terminal");
+      router.push(destination);
     }, REDIRECT_DELAY_MS);
     return () => clearTimeout(timeout);
-  }, [done, router]);
+  }, [done, router, destination]);
 
   if (done) {
-    return <SuccessState />;
+    return <SuccessState label={describeDestination(destination)} />;
   }
 
   if (alreadyRegistered) {
@@ -126,10 +137,17 @@ export function OnboardingWizard() {
     );
   }
 
-  // Reaching the wizard with an account already set up means arriving here by
-  // a stale link or a stray button, not wanting to start over. Offering the
+  // Reaching the wizard with a real account already set up means arriving here
+  // by a stale link or a stray button, not wanting to start over. Offering the
   // form would look like the account never saved.
-  if (isOnboarded && step === 1) {
+  //
+  // Keyed on `userId` - a Supabase session - rather than `isOnboarded`, which
+  // is also true for a connected wallet or a leftover local profile blob.
+  // Those are exactly the cases where creating a real account is the right next
+  // step, and blocking them made the affiliates page a dead end: it says
+  // "referrals need a real account", links here, and this screen answered "you
+  // already have one" with no way through.
+  if (userId !== null && step === 1) {
     return (
       <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
         <h2 className="text-lg font-semibold text-white">You already have an account</h2>
@@ -140,10 +158,12 @@ export function OnboardingWizard() {
           There&apos;s nothing to fill in again.
         </p>
         <Link
-          href="/terminal"
+          href={destination}
           className={cn(buttonVariants("primary", "lg"), "mt-5 w-full")}
         >
-          Go to the terminal
+          {destination.startsWith("/affiliates")
+            ? "Go to your affiliate dashboard"
+            : "Go to the terminal"}
         </Link>
         <button
           type="button"
