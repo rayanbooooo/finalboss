@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
  * landing page, where there is no session at all.
  */
 const BYBIT_BASE = "https://api.bybit.com";
+const BYBIT_BASE_TESTNET = "https://api-testnet.bybit.com";
 
 /** Read-only public endpoints, and nothing else. No account or order paths. */
 const ALLOWED_PATHS = [
@@ -41,10 +42,14 @@ export async function GET(request: Request) {
     if (ALLOWED_PARAMS.has(key)) forwarded.set(key, value);
   }
 
+  // The host is chosen here from a boolean, never taken from the caller, so
+  // this cannot be pointed at an arbitrary origin.
+  const base = url.searchParams.get("testnet") === "1" ? BYBIT_BASE_TESTNET : BYBIT_BASE;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const upstream = await fetch(`${BYBIT_BASE}${path}?${forwarded}`, {
+    const upstream = await fetch(`${base}${path}?${forwarded}`, {
       signal: controller.signal,
       cache: "no-store",
       headers: { accept: "application/json" },

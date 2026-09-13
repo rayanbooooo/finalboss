@@ -6,8 +6,10 @@ import {
   liquidationDistancePercent,
   sliderValueFromLeverage,
   clampLeverage,
+  DEMO_LEVERAGE_BOUNDS,
   MAX_LEVERAGE,
   MIN_LEVERAGE,
+  type LeverageBounds,
 } from "@/lib/calculations";
 import { formatCurrency, priceDecimals } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -23,12 +25,35 @@ interface LeverageSliderProps {
    * where the full control is taller than the card it sits in. The risk
    * warning is never dropped - that is the part worth the space. */
   compact?: boolean;
+  /** The range on offer. Demo's is a constant; a connected account's comes from
+   * the venue, differs per symbol, and is nowhere near this wide. */
+  bounds?: LeverageBounds;
 }
 
-const PRESETS = [500, 600, 750, 850, 1000];
+const DEMO_PRESETS = [500, 600, 750, 850, 1000];
+/** Round numbers a trader would actually pick, filtered to whatever the venue
+ * allows. Generating evenly-spaced values instead would offer things like 37x. */
+const VENUE_PRESET_CANDIDATES = [1, 2, 3, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200];
 
-export function LeverageSlider({ leverage, onChange, price, compact = false }: LeverageSliderProps) {
-  const sliderValue = sliderValueFromLeverage(leverage);
+function presetsFor(bounds: LeverageBounds): number[] {
+  if (bounds.min === MIN_LEVERAGE && bounds.max === MAX_LEVERAGE) return DEMO_PRESETS;
+  const inRange = VENUE_PRESET_CANDIDATES.filter(
+    (value) => value >= bounds.min && value <= bounds.max
+  );
+  // Always offer the ceiling, even when it is not a round number.
+  const withMax = inRange.includes(bounds.max) ? inRange : [...inRange, bounds.max];
+  return withMax.slice(-5);
+}
+
+export function LeverageSlider({
+  leverage,
+  onChange,
+  price,
+  compact = false,
+  bounds = DEMO_LEVERAGE_BOUNDS,
+}: LeverageSliderProps) {
+  const sliderValue = sliderValueFromLeverage(leverage, bounds);
+  const presets = presetsFor(bounds);
   // The whole range starts at 500x, so every setting is extreme by any normal
   // measure - there's no "safe" end of this slider to reassure anyone about,
   // which is why the track starts amber rather than green.
@@ -82,15 +107,18 @@ export function LeverageSlider({ leverage, onChange, price, compact = false }: L
 
       {!compact && (
         <div className="mt-1 flex justify-between font-mono text-[11px] text-white/30">
-          <span>{MIN_LEVERAGE}x</span>
-          <span>{(MIN_LEVERAGE + MAX_LEVERAGE) / 2}x</span>
-          <span>{MAX_LEVERAGE}x</span>
+          <span>{bounds.min}x</span>
+          <span>{Math.round((bounds.min + bounds.max) / 2)}x</span>
+          <span>{bounds.max}x</span>
         </div>
       )}
 
-      <div className={cn("mt-3 grid grid-cols-5 gap-1.5", compact && "hidden")}>
-        {PRESETS.map((preset) => {
-          const value = clampLeverage(preset);
+      <div
+        className={cn("mt-3 grid gap-1.5", compact && "hidden")}
+        style={{ gridTemplateColumns: `repeat(${presets.length}, minmax(0, 1fr))` }}
+      >
+        {presets.map((preset) => {
+          const value = clampLeverage(preset, bounds);
           return (
             <button
               key={preset}

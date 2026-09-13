@@ -1,8 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { CandlestickChart } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useExchange } from "@/contexts/ExchangeContext";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  LiveOrderConfirm,
+  type LiveOrderDraft,
+} from "@/components/terminal/LiveOrderConfirm";
+import { closeLivePosition } from "@/lib/exchange/orders";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCurrency, formatPercent, formatPrice, priceDecimals } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
@@ -12,9 +19,49 @@ import { getMarketConfig } from "@/lib/markets";
 import { liquidationProgress, priceMovePercent } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 
+/** A live position's id is `live:<venue symbol>:<side>`, which is the only
+ * place the venue's own symbol survives the adapter - the display symbol is our
+ * label ("BTC-PERP"), and the market id falls back to BTC for anything we don't
+ * list, so neither can be trusted to address an order. */
+function venueSymbolFromId(id: string): string | null {
+  if (!id.startsWith("live:")) return null;
+  const parts = id.split(":");
+  return parts.length >= 3 ? parts[1] : null;
+}
+
 export function OpenPositionsTable() {
   const { openPositions, closePosition, live } = useTerminal();
+  const { testnet, credentials, openUnlock } = useExchange();
   const { toast } = useToast();
+  const [draft, setDraft] = useState<LiveOrderDraft | null>(null);
+  const [sending, setSending] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
+
+  const handleConfirmClose = async () => {
+    const creds = credentials();
+    if (!draft || !creds) {
+      setCloseError("Your key is locked. Unlock it and try again.");
+      return;
+    }
+    setSending(true);
+    setCloseError(null);
+    try {
+      await closeLivePosition(creds, draft.symbol, draft.side, draft.qty);
+      setDraft(null);
+      toast({
+        variant: "success",
+        title: "Close order sent to Bybit",
+        description: `Reduce-only ${draft.qty} ${draft.symbol}. The position clears once it fills.`,
+      });
+      live.refresh();
+    } catch (caught) {
+      setCloseError(
+        caught instanceof Error ? caught.message : "The exchange rejected the close."
+      );
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (openPositions.length === 0) {
     return (
@@ -33,7 +80,8 @@ export function OpenPositionsTable() {
   }
 
   return (
-    <table className="w-full min-w-[900px] text-left text-sm">
+    <>
+      <table className="w-full min-w-[900px] text-left text-sm">
       <thead>
         <tr className="border-b border-white/5 text-xs text-white/40">
           <th className="px-4 py-3 font-medium sm:px-6">Market</th>
@@ -126,17 +174,30 @@ export function OpenPositionsTable() {
                 <Button
                   variant="outline"
                   size="sm"
-                  // Closing a position on a connected account isn't wired up
-                  // yet. Left enabled it would call the demo close with an id
-                  // that matches nothing, changing nothing while announcing
-                  // that the position was closed.
-                  disabled={live.active}
-                  title={
-                    live.active
-                      ? "Closing positions on a connected account isn't enabled yet - close it on Bybit"
-                      : undefined
-                  }
                   onClick={() => {
+                    // A venue position is closed by a reduce-only order at the
+                    // exchange, not by the demo engine - which holds no record
+                    // of it and would report a close that never happened.
+                    if (live.active) {
+                      if (live.locked) {
+                        openUnlock();
+                        return;
+                      }
+                      const venueSymbol = venueSymbolFromId(position.id);
+                      if (!venueSymbol) return;
+                      setCloseError(null);
+                      setDraft({
+                        symbol: venueSymbol,
+                        side: position.side,
+                        qty: position.size,
+                        notional: position.size * position.markPrice,
+                        leverage: position.leverage,
+                        markPrice: position.markPrice,
+                        testnet,
+                        reduceOnly: true,
+                      });
+                      return;
+                    }
                     closePosition(position.id);
                     toast({
                       variant: profit ? "success" : "warning",
@@ -145,14 +206,26 @@ export function OpenPositionsTable() {
                     });
                   }}
                 >
-                  Close
+                  {live.active && live.locked ? "Unlock" : "Close"}
                 </Button>
               </td>
             </tr>
           );
         })}
       </tbody>
-    </table>
+      </table>
+
+      <LiveOrderConfirm
+        draft={draft}
+        busy={sending}
+        error={closeError}
+        onConfirm={handleConfirmClose}
+        onClose={() => {
+          setDraft(null);
+          setCloseError(null);
+        }}
+      />
+    </>
   );
 }
 

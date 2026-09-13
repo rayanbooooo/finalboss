@@ -44,6 +44,9 @@ export interface LiveAccountStatus {
   stale: boolean;
   error: string | null;
   fetchedAt: number | null;
+  /** Re-polls the venue. Called straight after an order so the position table
+   * reflects the fill without waiting out the poll interval. */
+  refresh: () => void;
 }
 
 interface TerminalContextValue {
@@ -173,6 +176,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     stale: liveAccount.stale,
     error: liveAccount.error,
     fetchedAt: liveAccount.fetchedAt,
+    refresh: liveAccount.refresh,
   };
 
   // In a venue-backed mode the venue is the only source. When its figures

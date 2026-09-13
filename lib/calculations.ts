@@ -89,25 +89,55 @@ export function calcPnlPercent(pnl: number, margin: number): number {
 export const MIN_LEVERAGE = 500;
 export const MAX_LEVERAGE = 1000;
 
-/** Existing profiles predate the 500x floor, so their stored default has to
- * be pulled into range rather than trusted. */
-export function clampLeverage(leverage: number): number {
-  if (!Number.isFinite(leverage)) return MIN_LEVERAGE;
-  return Math.min(MAX_LEVERAGE, Math.max(MIN_LEVERAGE, Math.round(leverage)));
+export interface LeverageBounds {
+  min: number;
+  max: number;
 }
 
 /**
- * Linear across the 0-100 slider: the range is only 2x wide, so an
- * exponential curve would buy nothing and would make round numbers
- * unreachable. Each step is 5x, so 500/600/750/1000 all land exactly.
+ * The range demo mode offers. Live mode does not use it: a real venue caps
+ * leverage per symbol and per risk tier - Bybit allows nothing like 1000x on
+ * BTC - so bounds there come from the instrument, and passing these would
+ * produce orders the exchange rejects.
  */
-export function leverageFromSliderValue(sliderValue: number): number {
-  const t = clampSlider(sliderValue) / 100;
-  return clampLeverage(MIN_LEVERAGE + t * (MAX_LEVERAGE - MIN_LEVERAGE));
+export const DEMO_LEVERAGE_BOUNDS: LeverageBounds = {
+  min: MIN_LEVERAGE,
+  max: MAX_LEVERAGE,
+};
+
+/** Existing profiles predate the 500x floor, and a profile saved in demo mode
+ * carries a leverage no venue will accept, so a stored default is always pulled
+ * into whatever range currently applies rather than trusted. */
+export function clampLeverage(
+  leverage: number,
+  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+): number {
+  const min = Math.min(bounds.min, bounds.max);
+  const max = Math.max(bounds.min, bounds.max);
+  if (!Number.isFinite(leverage)) return min;
+  return Math.min(max, Math.max(min, Math.round(leverage)));
 }
 
-export function sliderValueFromLeverage(leverage: number): number {
-  const t = (clampLeverage(leverage) - MIN_LEVERAGE) / (MAX_LEVERAGE - MIN_LEVERAGE);
+/**
+ * Linear across the 0-100 slider. Demo's range is only 2x wide, so an
+ * exponential curve would buy nothing and would make round numbers
+ * unreachable; a venue range is wider but still reads naturally linear.
+ */
+export function leverageFromSliderValue(
+  sliderValue: number,
+  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+): number {
+  const t = clampSlider(sliderValue) / 100;
+  return clampLeverage(bounds.min + t * (bounds.max - bounds.min), bounds);
+}
+
+export function sliderValueFromLeverage(
+  leverage: number,
+  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+): number {
+  const span = bounds.max - bounds.min;
+  if (span <= 0) return 0;
+  const t = (clampLeverage(leverage, bounds) - bounds.min) / span;
   return Math.round(clampSlider(t * 100));
 }
 

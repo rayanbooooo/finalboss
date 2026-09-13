@@ -1,6 +1,8 @@
 import type { Candle, OrderBookLevel, OrderBookSnapshot, Trade } from "@/types/market";
 import { generateId } from "@/lib/utils";
 import type { Granularity } from "@/lib/timeframes";
+import { parseInstrument } from "@/lib/exchange/bybit";
+import type { Instrument } from "@/lib/exchange/types";
 
 /**
  * Public market data from Bybit V5 - the same venue the terminal trades on.
@@ -15,6 +17,7 @@ import type { Granularity } from "@/lib/timeframes";
  * lib/exchange/bybit.ts and go through the relay.
  */
 const REST_BASE = "https://api.bybit.com";
+const REST_BASE_TESTNET = "https://api-testnet.bybit.com";
 const WS_URL = "wss://stream.bybit.com/v5/public/linear";
 
 /** Bybit's own cap on a kline response, and far deeper than Coinbase's 300. */
@@ -55,13 +58,21 @@ interface BybitEnvelope<T> {
  */
 let useProxy = false;
 
-async function marketGet<T>(path: string, params: Record<string, string>): Promise<T> {
-  const query = new URLSearchParams(params).toString();
+async function marketGet<T>(
+  path: string,
+  params: Record<string, string>,
+  testnet = false
+): Promise<T> {
+  const query = new URLSearchParams({
+    ...params,
+    ...(testnet ? { testnet: "1" } : {}),
+  }).toString();
 
   async function attempt(viaProxy: boolean): Promise<T> {
+    const base = testnet ? REST_BASE_TESTNET : REST_BASE;
     const url = viaProxy
       ? `/api/market?path=${encodeURIComponent(path)}&${query}`
-      : `${REST_BASE}${path}?${query}`;
+      : `${base}${path}?${query}`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`Bybit ${path} failed: ${res.status}`);
     const body = (await res.json()) as BybitEnvelope<T>;
@@ -364,4 +375,29 @@ export function connectMultiMarketFeed(
     if (pingTimer) clearInterval(pingTimer);
     socket.close();
   };
+}
+
+/**
+ * Trading rules for one symbol: leverage bounds, quantity step, minimum size.
+ *
+ * Public, so this works before a key is unlocked - which matters because the
+ * leverage slider has to show the venue's real range as soon as the terminal is
+ * pointed at a venue account, not only once the secret is in memory. Testnet
+ * publishes its own limits, so the network has to be part of the request.
+ */
+export async function fetchInstrument(
+  symbol: string,
+  testnet: boolean
+): Promise<Instrument | null> {
+  try {
+    const result = await marketGet<{ list: Record<string, unknown>[] }>(
+      "/v5/market/instruments-info",
+      { category: "linear", symbol },
+      testnet
+    );
+    const row = result?.list?.[0];
+    return row ? parseInstrument(row) : null;
+  } catch {
+    return null;
+  }
 }

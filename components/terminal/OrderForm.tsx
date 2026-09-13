@@ -3,17 +3,27 @@
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useExchange } from "@/contexts/ExchangeContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useToast } from "@/contexts/ToastContext";
+import { useInstrument } from "@/hooks/useInstrument";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
+import {
+  LiveOrderConfirm,
+  type LiveOrderDraft,
+} from "@/components/terminal/LiveOrderConfirm";
 import { Button } from "@/components/ui/Button";
 import {
   calcLiquidationPrice,
   calcPositionSize,
   clampLeverage,
   liquidationDistancePercent,
+  DEMO_LEVERAGE_BOUNDS,
   MIN_LEVERAGE,
+  type LeverageBounds,
 } from "@/lib/calculations";
+import { openLivePosition, sizeOrder } from "@/lib/exchange/orders";
+import { MARKETS } from "@/lib/markets";
 import { formatCurrency, formatPrice, priceDecimals } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
 import { cn } from "@/lib/utils";
@@ -28,10 +38,35 @@ export function OrderForm() {
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
   const { toast } = useToast();
+  const { testnet, credentials, openUnlock } = useExchange();
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(() => clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
   const [margin, setMargin] = useState(1000);
   const [justExecuted, setJustExecuted] = useState(false);
+  const [draft, setDraft] = useState<LiveOrderDraft | null>(null);
+  const [sending, setSending] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [sizingError, setSizingError] = useState<string | null>(null);
+
+  const marketConfig = MARKETS.find((m) => m.id === activeMarketId);
+  const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, testnet, live.active);
+
+  // Demo's 500-1000x exists at no real venue, so a connected account takes its
+  // range from the instrument. Sending anything outside it gets the order
+  // rejected rather than clamped.
+  const bounds: LeverageBounds =
+    live.active && instrument
+      ? { min: instrument.minLeverage, max: instrument.maxLeverage }
+      : DEMO_LEVERAGE_BOUNDS;
+
+  // Switching modes changes the range under a leverage that was valid a moment
+  // ago - 750x is fine in demo and impossible on Bybit - so pull it back into
+  // range as the bounds change rather than at submit time.
+  const [appliedBounds, setAppliedBounds] = useState(bounds);
+  if (appliedBounds.min !== bounds.min || appliedBounds.max !== bounds.max) {
+    setAppliedBounds(bounds);
+    setLeverage((current) => clampLeverage(current, bounds));
+  }
 
   const liquidationPrice = useMemo(
     () => calcLiquidationPrice(market.price, leverage, side),
@@ -43,14 +78,48 @@ export function OrderForm() {
   );
 
   const exceedsBalance = margin > availableBalance;
-  // Placing orders on a connected account is not wired up yet. Until it is,
-  // the form must refuse rather than quietly open a demo position while the
-  // panel beside it says TESTNET or REAL FUNDS - a fake fill presented as a
-  // real one is worse than no fill at all.
-  const readOnlyLive = live.active;
+  // A venue mode with the key still locked can show the account but not sign
+  // for it. That is a prompt to unlock, not a dead form.
+  const needsUnlock = live.active && live.locked;
+  const awaitingInstrument = live.active && !instrument;
 
+  /**
+   * Demo fills immediately; a venue order goes to a confirm step first.
+   *
+   * The two paths are deliberately separate rather than one with a flag: a
+   * fake fill presented as a real one is the worst failure this screen has, so
+   * nothing that touches a real account shares code with the simulator.
+   */
   const handleExecute = () => {
-    if (margin <= 0 || exceedsBalance || readOnlyLive) return;
+    if (margin <= 0 || exceedsBalance) return;
+    setSizingError(null);
+
+    if (live.active) {
+      if (needsUnlock) {
+        openUnlock();
+        return;
+      }
+      if (!instrument) return;
+      try {
+        const { qty, notional } = sizeOrder(margin, leverage, market.price, instrument);
+        setOrderError(null);
+        setDraft({
+          symbol: instrument.symbol,
+          side,
+          qty,
+          notional,
+          leverage,
+          markPrice: market.price,
+          testnet,
+        });
+      } catch (caught) {
+        setSizingError(
+          caught instanceof Error ? caught.message : "Could not size that order."
+        );
+      }
+      return;
+    }
+
     openPosition({
       marketId: activeMarketId,
       symbol: market.symbol,
@@ -66,6 +135,38 @@ export function OrderForm() {
     });
     setJustExecuted(true);
     setTimeout(() => setJustExecuted(false), EXECUTED_LABEL_MS);
+  };
+
+  const handleConfirm = async () => {
+    const creds = credentials();
+    if (!draft || !creds) {
+      setOrderError("Your key is locked. Unlock it and try again.");
+      return;
+    }
+    setSending(true);
+    setOrderError(null);
+    try {
+      await openLivePosition(creds, {
+        symbol: draft.symbol,
+        side: draft.side,
+        qty: draft.qty,
+        leverage: draft.leverage,
+      });
+      setDraft(null);
+      toast({
+        variant: "success",
+        title: "Order sent to Bybit",
+        description: `${draft.side === "long" ? "Long" : "Short"} ${draft.qty} ${draft.symbol} at ${draft.leverage}x. The position appears once it fills.`,
+      });
+      // Don't wait out the poll interval to show what just happened.
+      live.refresh();
+    } catch (caught) {
+      setOrderError(
+        caught instanceof Error ? caught.message : "The exchange rejected the order."
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -156,35 +257,65 @@ export function OrderForm() {
         </div>
       </div>
 
-      {readOnlyLive && (
-        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm leading-relaxed text-amber-200">
-          You&apos;re viewing your {accountMode === "real" ? "real" : "testnet"} Bybit
-          account. Placing orders on it isn&apos;t enabled yet - switch to Demo to trade
-          here.
+      {live.active && (
+        <p
+          className={cn(
+            "rounded-xl border px-3 py-2 text-sm leading-relaxed",
+            accountMode === "real"
+              ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+          )}
+        >
+          {accountMode === "real"
+            ? "Orders go to your own Bybit account and move real money. Every one is confirmed first."
+            : "Orders go to your Bybit testnet account. No real money is involved."}
         </p>
       )}
 
-      {exceedsBalance && !readOnlyLive && (
+      {sizingError && (
+        <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+          {sizingError}
+        </p>
+      )}
+
+      {exceedsBalance && (
         <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
           Margin exceeds your available balance of {formatCurrency(availableBalance)}.
         </p>
       )}
 
       <div data-tour="leverage">
-        <LeverageSlider leverage={leverage} onChange={setLeverage} price={market.price} />
+        <LeverageSlider
+          leverage={leverage}
+          onChange={setLeverage}
+          price={market.price}
+          bounds={bounds}
+        />
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
         <Row label="Entry Price" value={formatPrice(market.price)} />
-        <Row
-          label="Est. Liq. Price"
-          value={formatPrice(liquidationPrice)}
-          valueClassName="text-rose-400"
-          // Distance is formatted to the price's precision, not its own - a
-          // $64 gap on BTC should read $64.47, not $64.469.
-          sub={`${formatCurrency(Math.abs(market.price - liquidationPrice), priceDecimals(market.price))} away · ${liquidationDistancePercent(leverage).toFixed(3)}% of price`}
-        />
+        {live.active ? (
+          // The demo engine's liquidation rule is not Bybit's, and this is the
+          // single worst number to guess at. Bybit computes it from the whole
+          // account and reports it on the position, so say that instead.
+          <Row
+            label="Liq. Price"
+            value="Set by Bybit"
+            valueClassName="text-white/50"
+            sub="Shown on the position once the order fills"
+          />
+        ) : (
+          <Row
+            label="Est. Liq. Price"
+            value={formatPrice(liquidationPrice)}
+            valueClassName="text-rose-400"
+            // Distance is formatted to the price's precision, not its own - a
+            // $64 gap on BTC should read $64.47, not $64.469.
+            sub={`${formatCurrency(Math.abs(market.price - liquidationPrice), priceDecimals(market.price))} away · ${liquidationDistancePercent(leverage).toFixed(3)}% of price`}
+          />
+        )}
       </div>
 
       <Button
@@ -192,15 +323,34 @@ export function OrderForm() {
         variant={side === "long" ? "secondary" : "danger"}
         size="lg"
         onClick={handleExecute}
-        disabled={margin <= 0 || exceedsBalance || readOnlyLive}
+        disabled={
+          margin <= 0 ||
+          exceedsBalance ||
+          (live.active && !needsUnlock && awaitingInstrument)
+        }
         className="w-full"
       >
-        {readOnlyLive
-          ? "Read-only on this account"
-          : justExecuted
-            ? "Order Filled"
-            : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
+        {needsUnlock
+          ? "Unlock your key to trade"
+          : awaitingInstrument
+            ? "Loading market rules…"
+            : justExecuted
+              ? "Order Filled"
+              : live.active
+                ? `${side === "long" ? "Long" : "Short"} ${instrument?.symbol ?? market.symbol} on Bybit`
+                : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
       </Button>
+
+      <LiveOrderConfirm
+        draft={draft}
+        busy={sending}
+        error={orderError}
+        onConfirm={handleConfirm}
+        onClose={() => {
+          setDraft(null);
+          setOrderError(null);
+        }}
+      />
     </div>
   );
 }

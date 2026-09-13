@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "The terms governing use of FinalBoss, including demo trading and connecting your own exchange account.",
 };
 
-const LAST_UPDATED = "September 12, 2026";
+const LAST_UPDATED = "September 13, 2026";
 
 interface Section {
   title: string;
@@ -36,7 +36,8 @@ const SECTIONS: Section[] = [
       "If you choose to save a key, your API secret is encrypted in your own browser under a passphrase you choose (PBKDF2-SHA256, then AES-GCM) and only the resulting ciphertext, its salt and its initialisation vector are stored. The passphrase is never sent to us and we cannot recover it: if you forget it, the saved secret is unrecoverable and you will need to connect the key again. That is a property of the design, not an oversight. You may also choose not to save the key at all, in which case the secret is held in memory for that browser session only.",
       "Your API key identifier (not the secret) is stored in readable form, because it is an identifier rather than a credential and the interface needs it to show you which key is connected before anything is unlocked.",
       "Requests to the exchange are signed in your browser and passed through a relay on this site, which forwards them without being able to read or alter the signed content. A decrypted secret is held only in memory and is cleared when you close the tab, when you sign out, and automatically after a period of inactivity.",
-      "At present, connected accounts are read-only in this interface: you can see balances and positions, but orders cannot be placed on them from here. If that changes, this section will change with it.",
+      "Leverage on a connected account is whatever that exchange allows for that symbol, read from the exchange itself. It is far lower than the range demo mode offers \u2014 the \"up to 1000x\" figure elsewhere on this site describes demo mode only, and no real venue we support offers anything close to it. The leverage control shows the venue's actual range whenever you are pointed at a real account.",
+      "Orders on a connected account always go through a confirmation step showing the exact quantity, order value and leverage being sent. There are no one-click orders against real money.",
     ],
   },
   {

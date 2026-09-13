@@ -264,5 +264,9 @@ export const requests = {
       orderType: "Market",
       qty: String(params.qty),
       reduceOnly: params.reduceOnly ?? false,
+      // 0 is one-way mode. Hedge-mode accounts need 1 or 2 and reject this;
+      // that rejection is translated into instructions in describeOrderError
+      // rather than being surfaced as a bare code.
+      positionIdx: 0,
     }),
 };
