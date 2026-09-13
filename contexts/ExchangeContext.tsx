@@ -21,6 +21,14 @@ import {
   type KeyPermissions,
 } from "@/lib/exchange/types";
 
+/**
+ * Mainnet only. The relay still picks its host from this boolean server-side -
+ * that is what stops a caller redirecting a signed request at an arbitrary
+ * origin - but the product no longer offers a testnet mode, so it is always
+ * false rather than something the UI can vary.
+ */
+const IS_TESTNET = false;
+
 /** The secret is cleared after this long without interaction. Memory-only, so
  * closing the tab locks it for free; this covers a tab left open. */
 const AUTO_LOCK_MS = 15 * 60 * 1000;
@@ -39,7 +47,6 @@ export interface StoredConnection {
 interface ConnectParams {
   apiKey: string;
   apiSecret: string;
-  testnet: boolean;
   /** Absent means "don't save" - the secret stays in memory for this session
    * and nothing is written to the database. */
   passphrase?: string;
@@ -54,6 +61,8 @@ interface ExchangeContextValue {
   connection: StoredConnection | null;
   /** Set for a session-only connection, which has no stored row. */
   sessionOnly: boolean;
+  /** Always false: the product is mainnet-only. Kept on the context because the
+   * relay chooses its host from it. */
   testnet: boolean;
   permissions: KeyPermissions | null;
   ready: boolean;
@@ -220,14 +229,13 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
     };
   }, [isUnlocked, lock]);
 
-  const testnet = connection?.isTestnet ?? true;
 
   const credentials = useCallback((): ExchangeCredentials | null => {
     if (!connection || !secretRef.current) return null;
     return {
       apiKey: connection.apiKey,
       apiSecret: secretRef.current,
-      testnet: connection.isTestnet,
+      testnet: IS_TESTNET,
     };
   }, [connection]);
 
@@ -237,7 +245,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
    * database.
    */
   const connect = useCallback(
-    async ({ apiKey, apiSecret, testnet: useTestnet, passphrase }: ConnectParams) => {
+    async ({ apiKey, apiSecret, passphrase }: ConnectParams) => {
       const trimmedKey = apiKey.trim();
       const trimmedSecret = apiSecret.trim();
       if (!trimmedKey || !trimmedSecret) {
@@ -246,12 +254,12 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
 
       // Signatures are rejected if the timestamp is off, and browser clocks
       // drift, so this has to happen before the first signed call.
-      await syncClock(useTestnet);
+      await syncClock(IS_TESTNET);
 
       const probe: ExchangeCredentials = {
         apiKey: trimmedKey,
         apiSecret: trimmedSecret,
-        testnet: useTestnet,
+        testnet: IS_TESTNET,
       };
       const result = await send<Record<string, unknown>>(await requests.keyInfo(probe));
       const perms = parseKeyPermissions(result);
@@ -276,7 +284,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
         setConnection({
           id: "session",
           venue: "bybit",
-          isTestnet: useTestnet,
+          isTestnet: IS_TESTNET,
           apiKey: trimmedKey,
           ciphertext: "",
           salt: "",
@@ -294,7 +302,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
           {
             user_id: userId,
             venue: "bybit",
-            is_testnet: useTestnet,
+            is_testnet: IS_TESTNET,
             api_key: trimmedKey,
             ciphertext: encrypted.ciphertext,
             salt: encrypted.salt,
@@ -341,7 +349,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
         },
         passphrase
       );
-      await syncClock(connection.isTestnet);
+      await syncClock(IS_TESTNET);
       secretRef.current = secret;
       setUnlockedAt(Date.now());
     },
@@ -365,7 +373,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       isUnlocked,
       connection,
       sessionOnly,
-      testnet,
+      testnet: IS_TESTNET,
       permissions,
       ready,
       loadError,
@@ -385,7 +393,6 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       connection,
       isUnlocked,
       sessionOnly,
-      testnet,
       permissions,
       ready,
       loadError,

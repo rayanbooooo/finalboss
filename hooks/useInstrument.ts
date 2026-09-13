@@ -10,10 +10,6 @@ import type { Instrument } from "@/lib/exchange/types";
  * would make one bad moment permanent. */
 const cache = new Map<string, Instrument>();
 
-function cacheKey(symbol: string, testnet: boolean): string {
-  return `${symbol}:${testnet ? "test" : "main"}`;
-}
-
 /**
  * The venue's rules for one symbol: leverage bounds, quantity step, minimum
  * size.
@@ -23,12 +19,8 @@ function cacheKey(symbol: string, testnet: boolean): string {
  * caps BTC far below 1000x - and a leverage outside the venue's range gets the
  * order rejected rather than clamped.
  */
-export function useInstrument(
-  symbol: string | null,
-  testnet: boolean,
-  enabled: boolean
-): Instrument | null {
-  const key = enabled && symbol ? cacheKey(symbol, testnet) : null;
+export function useInstrument(symbol: string | null, enabled: boolean): Instrument | null {
+  const key = enabled && symbol ? symbol : null;
 
   // Keyed state rather than a setState in the effect: a cache hit has to be
   // reflected in the very first render for this key, and the switch between
@@ -44,14 +36,14 @@ export function useInstrument(
   useEffect(() => {
     if (!key || !symbol || cache.has(key)) return undefined;
     let cancelled = false;
-    void fetchInstrument(symbol, testnet).then((result) => {
+    void fetchInstrument(symbol).then((result) => {
       if (result) cache.set(key, result);
       if (!cancelled && result) setState({ key, instrument: result });
     });
     return () => {
       cancelled = true;
     };
-  }, [key, symbol, testnet]);
+  }, [key, symbol]);
 
   return state.key === key ? state.instrument : null;
 }

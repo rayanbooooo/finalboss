@@ -382,18 +382,13 @@ export function connectMultiMarketFeed(
  *
  * Public, so this works before a key is unlocked - which matters because the
  * leverage slider has to show the venue's real range as soon as the terminal is
- * pointed at a venue account, not only once the secret is in memory. Testnet
- * publishes its own limits, so the network has to be part of the request.
+ * pointed at a venue account, not only once the secret is in memory.
  */
-export async function fetchInstrument(
-  symbol: string,
-  testnet: boolean
-): Promise<Instrument | null> {
+export async function fetchInstrument(symbol: string): Promise<Instrument | null> {
   try {
     const result = await marketGet<{ list: Record<string, unknown>[] }>(
       "/v5/market/instruments-info",
-      { category: "linear", symbol },
-      testnet
+      { category: "linear", symbol }
     );
     const row = result?.list?.[0];
     return row ? parseInstrument(row) : null;

@@ -38,7 +38,7 @@ export function OrderForm() {
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
   const { toast } = useToast();
-  const { testnet, credentials, openUnlock } = useExchange();
+  const { credentials, openUnlock } = useExchange();
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(() => clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
   const [margin, setMargin] = useState(1000);
@@ -49,7 +49,7 @@ export function OrderForm() {
   const [sizingError, setSizingError] = useState<string | null>(null);
 
   const marketConfig = MARKETS.find((m) => m.id === activeMarketId);
-  const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, testnet, live.active);
+  const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, live.active);
 
   // Demo's 500-1000x exists at no real venue, so a connected account takes its
   // range from the instrument. Sending anything outside it gets the order
@@ -110,7 +110,6 @@ export function OrderForm() {
           notional,
           leverage,
           markPrice: market.price,
-          testnet,
         });
       } catch (caught) {
         setSizingError(
@@ -258,17 +257,9 @@ export function OrderForm() {
       </div>
 
       {live.active && (
-        <p
-          className={cn(
-            "rounded-xl border px-3 py-2 text-sm leading-relaxed",
-            accountMode === "real"
-              ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-          )}
-        >
-          {accountMode === "real"
-            ? "Orders go to your own Bybit account and move real money. Every one is confirmed first."
-            : "Orders go to your Bybit testnet account. No real money is involved."}
+        <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm leading-relaxed text-rose-200">
+          Orders go to your own Bybit account and move real money. Every one is
+          confirmed first.
         </p>
       )}
 

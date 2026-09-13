@@ -31,7 +31,7 @@ function venueSymbolFromId(id: string): string | null {
 
 export function OpenPositionsTable() {
   const { openPositions, closePosition, live } = useTerminal();
-  const { testnet, credentials, openUnlock } = useExchange();
+  const { credentials, openUnlock } = useExchange();
   const { toast } = useToast();
   const [draft, setDraft] = useState<LiveOrderDraft | null>(null);
   const [sending, setSending] = useState(false);
@@ -193,7 +193,6 @@ export function OpenPositionsTable() {
                         notional: position.size * position.markPrice,
                         leverage: position.leverage,
                         markPrice: position.markPrice,
-                        testnet,
                         reduceOnly: true,
                       });
                       return;

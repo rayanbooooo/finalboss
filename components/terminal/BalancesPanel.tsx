@@ -6,7 +6,6 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const BYBIT_ASSETS_URL = "https://www.bybit.com/user/assets/home";
-const BYBIT_TESTNET_ASSETS_URL = "https://testnet.bybit.com/user/assets/home";
 
 /**
  * Account summary in the terminal's right column.
@@ -24,9 +23,7 @@ export function BalancesPanel() {
   const badge =
     accountMode === "demo"
       ? { label: "DEMO FUNDS", tone: "border-amber-500/30 bg-amber-500/10 text-amber-200" }
-      : accountMode === "testnet"
-        ? { label: "TESTNET", tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" }
-        : { label: "REAL FUNDS", tone: "border-rose-500/40 bg-rose-500/15 text-rose-200" };
+      : { label: "REAL FUNDS", tone: "border-rose-500/40 bg-rose-500/15 text-rose-200" };
 
   const showFigures = !live.active || live.ready;
 
@@ -79,7 +76,7 @@ export function BalancesPanel() {
         // Funding a real account happens at the exchange. This site never
         // takes a deposit, so it links out rather than pretending to.
         <a
-          href={accountMode === "testnet" ? BYBIT_TESTNET_ASSETS_URL : BYBIT_ASSETS_URL}
+          href={BYBIT_ASSETS_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"

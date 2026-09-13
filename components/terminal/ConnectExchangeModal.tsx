@@ -20,7 +20,6 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
 
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [testnet, setTestnet] = useState(true);
   const [save, setSave] = useState(true);
   const [passphrase, setPassphrase] = useState("");
   const [confirmPassphrase, setConfirmPassphrase] = useState("");
@@ -50,12 +49,11 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
       await connect({
         apiKey,
         apiSecret,
-        testnet,
         passphrase: save && canSave ? passphrase : undefined,
       });
       toast({
         variant: "success",
-        title: testnet ? "Testnet account connected" : "Live account connected",
+        title: "Exchange account connected",
         description: "Your key was verified and carries no withdrawal permission.",
       });
       reset();
@@ -84,29 +82,17 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <NetworkOption
-          label="Testnet"
-          hint="Fake funds. Start here."
-          active={testnet}
-          onClick={() => setTestnet(true)}
-        />
-        <NetworkOption
-          label="Live account"
-          hint="Real money at risk."
-          active={!testnet}
-          danger
-          onClick={() => setTestnet(false)}
-        />
-      </div>
 
-      {!testnet && (
-        <p className="mt-2 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Orders placed in this mode use real money in your Bybit account. Test on
-          testnet first.
-        </p>
-      )}
+      {/* There is no practice mode to fall back on, so this has to be
+          unmissable rather than a footnote. */}
+      <p className="mt-2 flex items-start gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs leading-relaxed text-rose-200">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          This connects your real Bybit account. Every order placed on it moves real
+          money, starting with the first one. Demo mode is the only place to
+          practise, and it does not touch this account.
+        </span>
+      </p>
 
       <Field label="API key" value={apiKey} onChange={setApiKey} autoComplete="off" />
       <Field
@@ -189,45 +175,6 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
   );
 }
 
-function NetworkOption({
-  label,
-  hint,
-  active,
-  danger,
-  onClick,
-}: {
-  label: string;
-  hint: string;
-  active: boolean;
-  danger?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "rounded-xl border px-3 py-2.5 text-left transition-colors",
-        active
-          ? danger
-            ? "border-amber-500/50 bg-amber-500/15"
-            : "border-emerald-500/50 bg-emerald-500/15"
-          : "border-white/10 hover:border-white/20"
-      )}
-    >
-      <span
-        className={cn(
-          "block text-sm font-medium",
-          active ? (danger ? "text-amber-200" : "text-emerald-200") : "text-white/70"
-        )}
-      >
-        {label}
-      </span>
-      <span className="mt-0.5 block text-xs text-white/40">{hint}</span>
-    </button>
-  );
-}
 
 function Field({
   label,

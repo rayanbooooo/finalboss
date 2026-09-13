@@ -30,7 +30,7 @@ export type PositionsTab = "open" | "history";
  * that word on the one distinction that decides whether real money moves would
  * be the worst possible place for ambiguity.
  */
-export type AccountMode = "demo" | "testnet" | "real";
+export type AccountMode = "demo" | "real";
 
 const ACCOUNT_MODE_KEY = STORAGE_KEYS.accountMode;
 
@@ -91,7 +91,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const [fundingMode, setFundingMode] = useState<FundingMode>(null);
   const { toast } = useToast();
 
-  const { isConnected, isUnlocked, testnet } = useExchange();
+  const { isConnected, isUnlocked } = useExchange();
   const [accountMode, setAccountModeState] = useState<AccountMode>("demo");
   // Restored after mount rather than in the initialiser, so the server and
   // client first render agree.
@@ -101,7 +101,10 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     const raf = requestAnimationFrame(() => {
       try {
         const stored = window.localStorage.getItem(ACCOUNT_MODE_KEY);
-        if (stored === "testnet" || stored === "real") setAccountModeState(stored);
+        // "testnet" is a value older builds wrote; it is no longer a mode, and
+        // silently promoting it to "real" would put someone on their own money
+        // because of a leftover string.
+        if (stored === "real") setAccountModeState(stored);
       } catch {
         // Storage blocked: demo is the safe default anyway.
       }
@@ -112,20 +115,12 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   // A stored venue mode is meaningless once the key is gone, and leaving it
   // set would show an empty "live" account that looks like a real zero balance.
-  //
-  // The network check matters just as much. A mode restored from a previous
-  // key is not validated against the current one, so a stored "real" alongside
-  // a testnet key used to render the red REAL FUNDS badge over testnet data,
-  // while the "Real funds" button sat simultaneously selected and disabled -
-  // the exact state that reads as "I can't switch".
-  const modeMatchesKey = accountMode === "demo" || (accountMode === "testnet") === testnet;
-  const effectiveMode: AccountMode = isConnected && modeMatchesKey ? accountMode : "demo";
+  const effectiveMode: AccountMode = isConnected ? accountMode : "demo";
   const liveActive = effectiveMode !== "demo";
 
   const setAccountMode = useCallback(
     (mode: AccountMode) => {
       if (mode !== "demo" && !isConnected) return;
-      if (mode !== "demo" && (mode === "testnet") !== testnet) return;
       setAccountModeState(mode);
       try {
         window.localStorage.setItem(ACCOUNT_MODE_KEY, mode);
@@ -133,7 +128,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         // Not persisting only means it resets to demo next visit.
       }
     },
-    [isConnected, testnet]
+    [isConnected]
   );
 
   const liveAccount = useLiveAccount(liveActive);

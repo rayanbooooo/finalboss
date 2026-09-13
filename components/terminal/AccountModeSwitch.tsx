@@ -8,23 +8,22 @@ import { cn } from "@/lib/utils";
 /**
  * Which account the terminal is operating on.
  *
- * Note the wording: "Demo / Testnet / Real funds", never "Live". The header
+ * Note the wording: "Demo / Real", never "Live". The header
  * beside this already uses LIVE to mean the price feed is real, and letting
  * one word carry both meanings would blur the single most important
  * distinction in the app.
  */
 const OPTIONS: { value: AccountMode; label: string; needsKey: boolean }[] = [
   { value: "demo", label: "Demo", needsKey: false },
-  { value: "testnet", label: "Testnet", needsKey: true },
-  { value: "real", label: "Real funds", needsKey: true },
+  { value: "real", label: "Real", needsKey: true },
 ];
 
 /** What stands between the user and this mode, if anything. */
-type Blocker = "none" | "no-key" | "locked" | "wrong-network" | "pending" | "load-error";
+type Blocker = "none" | "no-key" | "locked" | "pending" | "load-error";
 
 export function AccountModeSwitch() {
   const { accountMode, setAccountMode } = useTerminal();
-  const { isConnected, isUnlocked, sessionOnly, testnet, ready, loadError, openConnect, openUnlock } =
+  const { isConnected, isUnlocked, sessionOnly, ready, loadError, openConnect, openUnlock } =
     useExchange();
 
   function blockerFor(option: (typeof OPTIONS)[number]): Blocker {
@@ -35,9 +34,6 @@ export function AccountModeSwitch() {
     // who already has one is how a backend outage reads as user error.
     if (loadError && !isConnected) return "load-error";
     if (!isConnected) return "no-key";
-    // A testnet key can't trade the real book and vice versa, so only the
-    // network this key belongs to is offered.
-    if ((option.value === "testnet") !== testnet) return "wrong-network";
     if (!isUnlocked && !sessionOnly) return "locked";
     return "none";
   }
@@ -68,7 +64,7 @@ export function AccountModeSwitch() {
     );
   const shownBlocker = activeBlocker !== "none" ? activeBlocker : (venueBlocker ?? "none");
   const hasLoadError = shownBlocker === "load-error";
-  const caption = captionFor(shownBlocker, testnet);
+  const caption = captionFor(shownBlocker);
 
   return (
     <div className="flex w-full flex-col gap-1 lg:w-auto">
@@ -81,7 +77,7 @@ export function AccountModeSwitch() {
           const blocker = blockerFor(option);
           // Only a genuinely impossible choice is disabled. Everything else is
           // a live control that opens whatever it needs.
-          const disabled = blocker === "wrong-network" || blocker === "pending";
+          const disabled = blocker === "pending";
           const selected = accountMode === option.value;
 
           return (
@@ -96,9 +92,7 @@ export function AccountModeSwitch() {
                 selected
                   ? option.value === "real"
                     ? "bg-rose-500/20 text-rose-200"
-                    : option.value === "testnet"
-                      ? "bg-emerald-500/20 text-emerald-200"
-                      : "bg-white/10 text-white"
+                    : "bg-white/10 text-white"
                   : "text-white/50 hover:text-white/80"
               )}
             >
@@ -128,16 +122,14 @@ export function AccountModeSwitch() {
   );
 }
 
-function captionFor(blocker: Blocker, testnet: boolean): string | null {
+function captionFor(blocker: Blocker): string | null {
   switch (blocker) {
     case "load-error":
       return "Couldn't check for a saved key — the account service isn't reachable.";
     case "no-key":
-      return "Connect a Bybit key to trade your own account.";
+      return "Connect a Bybit key to trade your own account with real money.";
     case "locked":
       return "Your key is locked — unlock it to see this account.";
-    case "wrong-network":
-      return `Your saved key is for ${testnet ? "testnet" : "the real account"}.`;
     default:
       return null;
   }

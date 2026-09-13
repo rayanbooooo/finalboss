@@ -12,7 +12,7 @@ interface UnlockModalProps {
 }
 
 export function UnlockModal({ isOpen, onClose }: UnlockModalProps) {
-  const { unlock, connection, testnet } = useExchange();
+  const { unlock, connection } = useExchange();
   const [passphrase, setPassphrase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function UnlockModal({ isOpen, onClose }: UnlockModalProps) {
             <span className="font-mono text-white/80">
               …{connection.apiKey.slice(-6)}
             </span>{" "}
-            on {testnet ? "testnet" : "the live account"}.
+            .
           </>
         )}
       </p>

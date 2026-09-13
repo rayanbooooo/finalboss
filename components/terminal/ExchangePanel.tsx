@@ -12,7 +12,6 @@ export function ExchangePanel() {
     isUnlocked,
     connection,
     sessionOnly,
-    testnet,
     disconnect,
     lock,
     openConnect,
@@ -31,9 +30,7 @@ export function ExchangePanel() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-white">Exchange account</h2>
         {isConnected && (
-          <Badge variant={testnet ? "emerald" : "amber"}>
-            {testnet ? "Testnet" : "Live account"}
-          </Badge>
+          <Badge variant="amber">Real account</Badge>
         )}
       </div>
 

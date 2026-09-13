@@ -14,7 +14,6 @@ export interface LiveOrderDraft {
   notional: number;
   leverage: number;
   markPrice: number;
-  testnet: boolean;
   /** Closing an existing position rather than opening one. */
   reduceOnly?: boolean;
 }
@@ -52,17 +51,8 @@ export function LiveOrderConfirm({
 
   return (
     <Modal isOpen onClose={busy ? () => {} : onClose} title={`${action} on Bybit`}>
-      <div
-        className={cn(
-          "rounded-xl border px-3 py-2 text-sm",
-          draft.testnet
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-            : "border-rose-500/40 bg-rose-500/10 text-rose-200"
-        )}
-      >
-        {draft.testnet
-          ? "Testnet account — this uses Bybit's test funds, not real money."
-          : "Real funds. This order executes on your own Bybit account and moves real money."}
+      <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+        Real funds. This order executes on your own Bybit account and moves real money.
       </div>
 
       <dl className="mt-4 flex flex-col gap-2.5 text-sm">
