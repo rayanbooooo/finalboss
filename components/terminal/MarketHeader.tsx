@@ -76,7 +76,7 @@ export function MarketHeader() {
         />
         <Stat label="24h High" value={formatPrice(market.high24h)} />
         <Stat label="24h Low" value={formatPrice(market.low24h)} />
-        <Stat label="24h Volume" value={`$${formatCompactNumber(market.volume24h)}`} />
+        <Stat label="24h Volume" value={`$${formatCompactNumber(market.turnover24h)}`} />
       </div>
 
       <div className="ml-auto hidden items-center gap-3 lg:flex">

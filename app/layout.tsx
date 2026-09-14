@@ -21,7 +21,7 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "FinalBoss — High-Leverage Perpetuals Trading",
   description:
-    "Trade crypto perpetuals with up to 1000x leverage, zero gas fees, and instant settlement.",
+    "Practice crypto perpetuals at up to 1000x leverage on live Bybit prices, then connect your own exchange account when you want it to count.",
 };
 
 export const viewport: Viewport = {

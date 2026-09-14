@@ -50,7 +50,14 @@ export interface MarketSnapshot {
   change24hPct: number;
   high24h: number;
   low24h: number;
+  /** Base-asset volume over 24h - BTC, not dollars. */
   volume24h: number;
+  /** 24h volume in quote currency (USDT). This is the one to put a $ in front
+   * of; volume24h counts coins and was being rendered as money. */
+  turnover24h: number;
+  /** Notional value of all open positions on the venue, in quote currency.
+   * Zero in the simulator, which has no venue to have positions on. */
+  openInterestUsd: number;
   /**
    * True when these prices are real Bybit data rather than the client-side
    * simulator. This is what the LIVE / SIMULATED badge means, and the terms

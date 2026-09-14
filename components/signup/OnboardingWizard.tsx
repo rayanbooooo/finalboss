@@ -247,8 +247,10 @@ export function OnboardingWizard() {
           {method === "wallet" ? (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-white/55">
-                Connect a Web3 wallet to create your account instantly — no email or
-                password required.
+                Connect a Web3 wallet to get straight into the terminal — no email
+                or password. This sets you up on this browser only: an email account
+                is what carries your settings and positions to another device, and
+                what the referral programme attaches to.
               </p>
               <Button variant="primary" size="lg" onClick={openWalletModal} className="w-full">
                 Connect Wallet

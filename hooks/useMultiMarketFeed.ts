@@ -42,6 +42,8 @@ interface LiveState {
   high24h: number;
   low24h: number;
   volume24h: number;
+  turnover24h: number;
+  openInterestUsd: number;
 }
 
 function emptyLiveState(): LiveState {
@@ -56,6 +58,8 @@ function emptyLiveState(): LiveState {
     high24h: 0,
     low24h: 0,
     volume24h: 0,
+    turnover24h: 0,
+    openInterestUsd: 0,
   };
 }
 
@@ -201,6 +205,8 @@ export function useMultiMarketFeed(): MultiMarketFeed {
           high24h: ticker.high24h,
           low24h: ticker.low24h,
           volume24h: ticker.volume24h,
+          turnover24h: ticker.turnover24h,
+          openInterestUsd: ticker.openInterestUsd,
           series: rollIntoSeries(prev[id].series, ticker.price),
         },
       }));
@@ -269,6 +275,8 @@ export function useMultiMarketFeed(): MultiMarketFeed {
                 high24h: stats?.high24h ?? current.high24h,
                 low24h: stats?.low24h ?? current.low24h,
                 volume24h: stats?.volume24h ?? current.volume24h,
+                turnover24h: stats?.turnover24h ?? current.turnover24h,
+                openInterestUsd: stats?.openInterestUsd ?? current.openInterestUsd,
               },
             };
           });
@@ -372,6 +380,8 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         high24h: state.high24h,
         low24h: state.low24h,
         volume24h: state.volume24h,
+        turnover24h: state.turnover24h,
+        openInterestUsd: state.openInterestUsd,
         // hasHistory is true in this branch, so every candle and the price are
         // real Bybit data whatever the socket is doing.
         isLive: true,

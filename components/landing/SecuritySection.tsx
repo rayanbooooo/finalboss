@@ -1,4 +1,4 @@
-import { Eye, Lock, Radio, Zap } from "lucide-react";
+import { Eye, Lock, Radio, Route } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
 
 const PILLARS = [
@@ -6,7 +6,7 @@ const PILLARS = [
     icon: Lock,
     title: "Non-custodial by design",
     description:
-      "Connect a wallet or sign up with email — FinalBoss never takes custody of your funds during onboarding.",
+      "There is no deposit address on this site and no balance we control. Demo funds are simulated; real funds stay in your own account at your own exchange.",
   },
   {
     icon: Eye,
@@ -21,10 +21,10 @@ const PILLARS = [
       "A LIVE or SIMULATED badge tells you exactly which feed is pricing the market you're looking at, always.",
   },
   {
-    icon: Zap,
-    title: "Off-chain matching, instant fills",
+    icon: Route,
+    title: "Your order goes where you can check it",
     description:
-      "Orders match off-chain for millisecond execution, with zero gas fees on every trade.",
+      "We run no matching engine. A Real-mode order is signed in your browser, relayed to Bybit, and filled there \u2014 so it shows up in your Bybit account exactly as if you had placed it yourself.",
   },
 ];
 
@@ -43,8 +43,9 @@ export function SecuritySection() {
             Built for traders who verify, not trust
           </h2>
           <p className="mt-4 text-white/50">
-            No black boxes — the same math and data you see is what drives
-            every fill.
+            No black boxes. The prices are labelled, the liquidation math is
+            written down, and every real order lands somewhere you can audit it
+            yourself.
           </p>
         </Reveal>
 

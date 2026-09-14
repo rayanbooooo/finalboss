@@ -136,6 +136,8 @@ export interface ProductStats {
   high24h: number;
   low24h: number;
   volume24h: number;
+  turnover24h: number;
+  openInterestUsd: number;
   last: number;
 }
 
@@ -164,7 +166,12 @@ export async function fetchProductStats(symbol: string): Promise<ProductStats | 
       open24h: num(row.prevPrice24h),
       high24h: num(row.highPrice24h),
       low24h: num(row.lowPrice24h),
+      // volume24h counts the base asset and turnover24h is the quote-currency
+      // value of it. They differ by four or five orders of magnitude on BTC,
+      // which is how one of them ended up on screen behind a dollar sign.
       volume24h: num(row.volume24h),
+      turnover24h: num(row.turnover24h),
+      openInterestUsd: num(row.openInterestValue),
       last: num(row.lastPrice),
     };
   } catch {
@@ -178,6 +185,8 @@ export interface TickerUpdate {
   high24h: number;
   low24h: number;
   volume24h: number;
+  turnover24h: number;
+  openInterestUsd: number;
 }
 
 /** How often the polling fallback re-reads the tickers endpoint. */
@@ -217,6 +226,8 @@ export function startTickerPolling(
           high24h: stats.high24h,
           low24h: stats.low24h,
           volume24h: stats.volume24h,
+          turnover24h: stats.turnover24h,
+          openInterestUsd: stats.openInterestUsd,
         });
       })
     );
@@ -353,6 +364,8 @@ export function connectMultiMarketFeed(
         high24h: num(merged.highPrice24h) || price,
         low24h: num(merged.lowPrice24h) || price,
         volume24h: num(merged.volume24h),
+        turnover24h: num(merged.turnover24h),
+        openInterestUsd: num(merged.openInterestValue),
       });
       return;
     }

@@ -112,7 +112,11 @@ export function useMarketSimulator(
     createFlatOrderBook(seedPrice)
   );
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [volume24h, setVolume24h] = useState(seedPrice * VOLUME_BASELINE_FACTOR);
+  // Quote-currency turnover, which is what the accumulator below adds up
+  // (price times size). The base-asset volume is derived from it on the way
+  // out, so the two fields mean the same thing here as they do on the live
+  // path rather than quietly swapping over.
+  const [turnover24h, setTurnover24h] = useState(seedPrice * VOLUME_BASELINE_FACTOR);
   const [prevPrice, setPrevPrice] = useState(price);
   const priceRef = useRef(price);
   const anchorRef = useRef(realAnchorPrice);
@@ -176,7 +180,7 @@ export function useMarketSimulator(
     const interval = setInterval(() => {
       const trade = generateTrade(priceRef.current);
       setTrades((prev) => [trade, ...prev].slice(0, MAX_TRADES));
-      setVolume24h((prev) => prev + trade.price * trade.size);
+      setTurnover24h((prev) => prev + trade.price * trade.size);
       setSeries((prev) => addVolume(prev, trade.size));
     }, TRADE_TICK_MS);
     return () => clearInterval(interval);
@@ -202,7 +206,11 @@ export function useMarketSimulator(
     change24hPct,
     high24h,
     low24h,
-    volume24h,
+    volume24h: price > 0 ? turnover24h / price : 0,
+    turnover24h,
+    // There is no venue behind the simulator, so there are no open positions
+    // on it to report. Anything else here would be a made-up number.
+    openInterestUsd: 0,
     isLive: false,
     isStreaming: false,
   };

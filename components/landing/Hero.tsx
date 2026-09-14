@@ -68,7 +68,7 @@ export function Hero() {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[11px] tracking-wide text-white/50">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            ZERO GAS &middot; INSTANT SETTLEMENT
+            LIVE BYBIT PRICES &middot; DEMO OR YOUR OWN ACCOUNT
           </div>
 
           <h1 className="mt-6 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-tight text-white sm:text-6xl lg:text-[4rem]">
@@ -81,9 +81,9 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-white/55 sm:text-lg">
-            Off-chain matching infrastructure inspired by Orderly Network and
-            Aark. Deep orderbook liquidity, instant settlement, real market
-            data — built for the highest-conviction traders.
+            Live Bybit prices, demo funds, and a liquidation price that moves
+            while you drag the slider. When you want it to count, connect your
+            own exchange account and trade it for real from the same screen.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
