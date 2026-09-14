@@ -88,7 +88,7 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
     step: 2,
     title: "Start in demo",
     description:
-      "You begin with demo funds on live Bybit prices. Step two used to say \u201cdeposit USDC\u201d; there is no deposit here, and there never was.",
+      "You start with demo funds priced off the live Bybit feed. There is nothing to deposit and no balance we hold \u2014 the money is simulated, the market is not.",
   },
   {
     step: 3,
