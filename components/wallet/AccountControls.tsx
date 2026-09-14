@@ -1,22 +1,28 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import Link from "next/link";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { useWalletModal } from "@/contexts/WalletModalContext";
-import { Button } from "@/components/ui/Button";
-import { ConnectedBadge } from "@/components/wallet/ConnectedBadge";
+import { buttonVariants } from "@/components/ui/Button";
 import { AccountBadge } from "@/components/wallet/AccountBadge";
+import { authLink } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * The wallet and account chrome, decided once for every header that shows it.
+ * One identity, shown once.
  *
- * The three call sites each used to pick a single badge with
- * `isConnected ? <ConnectedBadge/> : profile ? <AccountBadge/> : <Connect/>`,
- * which meant a user who was both signed in and wallet-connected saw only the
- * wallet badge - whose button disconnects the wallet and leaves the FinalBoss
- * session untouched. In that state the app rendered no way to sign out at all.
- * They are separate things, so both are shown when both apply.
+ * This used to render the wallet chip and the account chip side by side, which
+ * is exactly what a header looked like for anyone both signed in and
+ * wallet-connected: two addresses for one person, each with its own sign-out
+ * button that did something different. They were shown together because they
+ * genuinely were two separate identities - which was the underlying problem,
+ * not a display bug.
+ *
+ * A wallet is no longer an identity. It is an optional detail on an account,
+ * linked and unlinked in Settings, so nothing about it belongs in a header.
+ *
+ * The signed-out call to action was also "Connect Wallet", which asked a
+ * stranger for the one thing that creates no account at all. It is now the
+ * thing that does.
  */
 export function AccountControls({
   size = "md",
@@ -25,27 +31,31 @@ export function AccountControls({
   size?: "md" | "lg";
   className?: string;
 }) {
-  const { isConnected } = useAccount();
-  const { profile } = useOnboarding();
-  const { open: openWalletModal } = useWalletModal();
+  const { isOnboarded, profile } = useOnboarding();
 
-  if (!isConnected && !profile) {
+  if (!isOnboarded) {
     return (
-      <Button
-        variant="outline"
-        size={size}
-        onClick={openWalletModal}
-        className={cn(size === "lg" && "w-full", className)}
+      <Link
+        href={authLink("/signin", "/terminal")}
+        className={cn(
+          buttonVariants("outline", size),
+          size === "lg" && "w-full",
+          className
+        )}
       >
-        Connect Wallet
-      </Button>
+        Sign in
+      </Link>
     );
   }
 
+  // `isOnboarded` can be true for a moment before the profile row lands, so
+  // this is not an "or" with the branch above - there is simply nothing to
+  // name yet.
+  if (!profile) return null;
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      {isConnected && <ConnectedBadge />}
-      {profile && <AccountBadge />}
+    <div className={cn("flex items-center", className)}>
+      <AccountBadge />
     </div>
   );
 }

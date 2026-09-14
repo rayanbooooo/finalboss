@@ -4,27 +4,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { useAccount } from "wagmi";
-import { Tabs } from "@/components/ui/Tabs";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 import { StepProgress } from "@/components/ui/StepProgress";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { SuccessState } from "@/components/signup/SuccessState";
-import { useWalletModal } from "@/contexts/WalletModalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSignOut } from "@/hooks/useSignOut";
 import { safeRedirect } from "@/lib/navigation";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { truncateAddress } from "@/lib/format";
-import type { ExperienceLevel, OnboardingMethod, RiskTolerance } from "@/types/onboarding";
+import type { ExperienceLevel, RiskTolerance } from "@/types/onboarding";
 import { cn } from "@/lib/utils";
-
-const METHOD_TABS = [
-  { value: "wallet", label: "Web3 Wallet" },
-  { value: "email", label: "Email" },
-];
 
 const EXPERIENCE_OPTIONS: { value: ExperienceLevel; label: string }[] = [
   { value: "new", label: "New to trading" },
@@ -38,7 +29,7 @@ const RISK_OPTIONS: { value: RiskTolerance; label: string }[] = [
   { value: "aggressive", label: "Aggressive" },
 ];
 
-const STEP_LABELS = ["Method", "Profile", "Risk & Preferences", "Review"];
+const STEP_LABELS = ["Account", "Profile", "Risk & Preferences", "Review"];
 const TOTAL_STEPS = 4;
 const REDIRECT_DELAY_MS = 1600;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,7 +48,6 @@ export function OnboardingWizard() {
   // Validated, never trusted - it comes from whoever wrote the link.
   const destination = safeRedirect(useSearchParams().get("next"));
   const [step, setStep] = useState(1);
-  const [method, setMethod] = useState<OnboardingMethod>("wallet");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -71,18 +61,8 @@ export function OnboardingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  const { isConnected, address } = useAccount();
-  const { open: openWalletModal } = useWalletModal();
   const { markOnboarded, signUpWithEmail, userId, profile } = useOnboarding();
   const { signOut, signingOut } = useSignOut();
-
-  const [prevIsConnected, setPrevIsConnected] = useState(isConnected);
-  if (isConnected !== prevIsConnected) {
-    setPrevIsConnected(isConnected);
-    if (step === 1 && method === "wallet" && isConnected) {
-      setStep(2);
-    }
-  }
 
   useEffect(() => {
     if (!done) return undefined;
@@ -189,23 +169,16 @@ export function OnboardingWizard() {
     setAuthError(null);
 
     const nextProfile = {
-      method,
-      email: method === "email" ? email : undefined,
+      // Always "email": it is the only way to create an account. The column
+      // still accepts "wallet" for rows created before this changed.
+      method: "email" as const,
+      email,
       displayName: displayName.trim(),
       experienceLevel,
       riskTolerance,
       defaultLeverage,
       createdAt: Date.now(),
     };
-
-    // A wallet signup has no email/password to create a real account with,
-    // so it stays a local profile.
-    if (method !== "email") {
-      markOnboarded(nextProfile);
-      setSubmitting(false);
-      setDone(true);
-      return;
-    }
 
     const result = await signUpWithEmail(email, password, nextProfile);
     setSubmitting(false);
@@ -237,76 +210,61 @@ export function OnboardingWizard() {
             </p>
           )}
 
-          <Tabs
-            items={METHOD_TABS}
-            value={method}
-            onChange={(value) => setMethod(value as OnboardingMethod)}
-            className="w-full"
-          />
+          <p className="text-sm leading-relaxed text-white/55">
+            Your email is your FinalBoss account: it is what carries your settings
+            and positions between devices, and what the referral programme attaches
+            to. You can link a wallet later in Settings.
+          </p>
 
-          {method === "wallet" ? (
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-white/55">
-                Connect a Web3 wallet to get straight into the terminal — no email
-                or password. This sets you up on this browser only: an email account
-                is what carries your settings and positions to another device, and
-                what the referral programme attaches to.
-              </p>
-              <Button variant="primary" size="lg" onClick={openWalletModal} className="w-full">
-                Connect Wallet
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleEmailContinue} className="flex flex-col gap-4">
-              <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white/70">
-                  Email address
-                </label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white/70">
-                  Password
-                </label>
+          <form onSubmit={handleEmailContinue} className="flex flex-col gap-4">
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-white/70">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                 <input
-                  id="password"
-                  type="password"
+                  id="email"
+                  type="email"
                   required
-                  minLength={MIN_PASSWORD_LENGTH}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none"
                 />
               </div>
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={!EMAIL_PATTERN.test(email) || password.length < MIN_PASSWORD_LENGTH}
-                className="w-full"
-              >
-                Continue
-              </Button>
-              <p className="text-center text-xs text-white/40">
-                Already have an account?{" "}
-                <Link href="/signin" className="text-violet-300 hover:underline">
-                  Sign in
-                </Link>
-              </p>
-            </form>
-          )}
+            </div>
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white/70">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:border-violet-500 focus:outline-none"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={!EMAIL_PATTERN.test(email) || password.length < MIN_PASSWORD_LENGTH}
+              className="w-full"
+            >
+              Continue
+            </Button>
+            <p className="text-center text-xs text-white/40">
+              Already have an account?{" "}
+              <Link href="/signin" className="text-violet-300 hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </form>
         </div>
       )}
 
@@ -346,11 +304,9 @@ export function OnboardingWizard() {
           </div>
 
           <div className="flex gap-3">
-            {method !== "wallet" && (
-              <Button variant="outline" size="lg" onClick={() => setStep(1)} className="w-full">
-                Back
-              </Button>
-            )}
+            <Button variant="outline" size="lg" onClick={() => setStep(1)} className="w-full">
+              Back
+            </Button>
             <Button
               variant="primary"
               size="lg"
@@ -409,10 +365,7 @@ export function OnboardingWizard() {
       {step === 4 && (
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
-            <SummaryRow
-              label="Sign-in method"
-              value={method === "wallet" ? (address ? truncateAddress(address) : "Wallet") : email}
-            />
+            <SummaryRow label="Email" value={email} />
             <SummaryRow label="Display name" value={displayName} />
             <SummaryRow
               label="Experience"

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, RotateCcw } from "lucide-react";
 import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { ExchangePanel } from "@/components/terminal/ExchangePanel";
+import { LinkedWallet } from "@/components/terminal/LinkedWallet";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSignOut } from "@/hooks/useSignOut";
 import { useToast } from "@/contexts/ToastContext";
@@ -184,6 +185,8 @@ export function SettingsPanel() {
       </section>
 
       <ExchangePanel />
+
+      <LinkedWallet />
 
       <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
         <h2 className="text-sm font-semibold text-white">Walkthrough</h2>

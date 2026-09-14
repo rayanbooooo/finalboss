@@ -42,7 +42,7 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           {/* Without this there is no way into an existing account from the
-              landing page: Sign Up, Connect Wallet and Start Trading all lead
+              landing page: Sign Up, Sign In and Start Trading all lead
               somewhere else. */}
           {!isOnboarded && (
             <Link

@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useTerminal } from "@/contexts/TerminalContext";
-import { useWalletModal } from "@/contexts/WalletModalContext";
 import { Logo } from "@/components/ui/Logo";
 import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { cn } from "@/lib/utils";
@@ -37,7 +36,6 @@ function scrollToPositions() {
  */
 export function TerminalSidebar() {
   const { isConnected } = useAccount();
-  const { open: openWalletModal } = useWalletModal();
   const { positionsTab, setPositionsTab, fundingMode, openFunding } = useTerminal();
   const pathname = usePathname();
   const router = useRouter();
@@ -146,12 +144,15 @@ export function TerminalSidebar() {
       </div>
 
       <div className="mt-auto flex w-full flex-col items-center gap-1">
+        {/* Points at Settings rather than opening the connect modal: a wallet
+            is an optional detail on the account now, not a way in, so it lives
+            in one place with an explanation next to it. */}
         <SidebarItem
           icon={Wallet}
-          label={isConnected ? "Wallet" : "Connect wallet"}
+          label={isConnected ? "Linked wallet" : "Link a wallet"}
           collapsed={collapsed}
           dot={isConnected}
-          onClick={openWalletModal}
+          href="/terminal/settings"
         />
         <SidebarItem icon={Home} label="Back to site" collapsed={collapsed} href="/" />
         <SidebarItem

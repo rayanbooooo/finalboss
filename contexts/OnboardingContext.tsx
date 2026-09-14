@@ -6,6 +6,7 @@ import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { attributePendingReferral, generateReferralCode } from "@/lib/referrals";
 import { clearPerUserStorage, STORAGE_KEYS } from "@/lib/storageKeys";
+import { isSignedIn } from "@/lib/session";
 import type { OnboardingProfile } from "@/types/onboarding";
 
 const STORAGE_KEY = STORAGE_KEYS.profile;
@@ -17,7 +18,10 @@ export type SignUpResult =
   | { status: "error"; message: string };
 
 interface OnboardingContextValue {
-  /** True once a wallet is connected, a Supabase session exists, or a local signup was completed. */
+  /**
+   * True when there is a real account. See lib/session.ts - a connected wallet
+   * is deliberately not one of the things that can make this true.
+   */
   isOnboarded: boolean;
   /** True once we've finished checking auth, localStorage and wagmi's reconnect attempt. */
   isResolved: boolean;
@@ -105,7 +109,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     async function loadProfile(id: string, email: string | undefined) {
       const { data, error } = await supabase!
         .from("profiles")
-        .select("display_name, method, experience_level, risk_tolerance, default_leverage, referral_code")
+        .select(
+          "display_name, method, experience_level, risk_tolerance, default_leverage, referral_code, wallet_address"
+        )
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
@@ -124,6 +130,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           experienceLevel: data.experience_level,
           riskTolerance: data.risk_tolerance,
           defaultLeverage: data.default_leverage,
+          walletAddress: data.wallet_address ?? undefined,
           createdAt: Date.now(),
         });
         // A code is generated below when the row is created, so a row that
@@ -226,6 +233,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             experience_level: next.experienceLevel,
             risk_tolerance: next.riskTolerance,
             default_leverage: next.defaultLeverage,
+            wallet_address: next.walletAddress ?? null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);
@@ -326,7 +334,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const walletResolved = status !== "connecting" && status !== "reconnecting";
 
   const value: OnboardingContextValue = {
-    isOnboarded: isConnected || userId !== null || profile !== null,
+    isOnboarded: isSignedIn({ userId, profile, supabaseConfigured: isSupabaseConfigured }),
     isResolved: localReady && walletResolved && authReady,
     profile,
     userId,

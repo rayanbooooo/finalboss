@@ -82,7 +82,7 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
     step: 1,
     title: "Create your account",
     description:
-      "Email and a password, or connect a wallet. It takes a minute and there is nothing to fund.",
+      "Email and a password, and that is the account. It takes a minute, there is nothing to fund, and you can link a wallet later if you want to.",
   },
   {
     step: 2,
