@@ -3,9 +3,8 @@
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, Lock, TriangleAlert } from "lucide-react";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { formatCurrency } from "@/lib/format";
+import { ACTIVE_VENUE } from "@/lib/venues";
 import { cn } from "@/lib/utils";
-
-const BYBIT_ASSETS_URL = "https://www.bybit.com/user/assets/home";
 
 /**
  * Account summary in the terminal's right column.
@@ -75,14 +74,18 @@ export function BalancesPanel() {
       ) : (
         // Funding a real account happens at the exchange. This site never
         // takes a deposit, so it links out rather than pretending to.
+        //
+        // Deliberately not a referral link: whoever reaches this already has
+        // the account, so a code here would attribute nothing and only add
+        // noise to the URL.
         <a
-          href={BYBIT_ASSETS_URL}
+          href={ACTIVE_VENUE.fundsUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Manage funds on Bybit
+          Manage funds on {ACTIVE_VENUE.name}
         </a>
       )}
     </div>

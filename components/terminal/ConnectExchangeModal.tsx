@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, KeyRound, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ExternalLink, KeyRound, ShieldCheck } from "lucide-react";
 import { useExchange } from "@/contexts/ExchangeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { ACTIVE_VENUE, hasReferral, venueSignUpUrl } from "@/lib/venues";
 import { cn } from "@/lib/utils";
 
 interface ConnectExchangeModalProps {
@@ -93,6 +94,43 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
           practise, and it does not touch this account.
         </span>
       </p>
+
+      {/* The step that was missing entirely: this screen asked for a Bybit API
+          key without ever offering a way to get a Bybit account. Anyone who
+          did not already have one had to leave and work it out themselves -
+          and every one of them signed up to the exchange with nothing
+          attributed to this site. */}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+        <a
+          href={venueSignUpUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-medium text-violet-300 hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          No {ACTIVE_VENUE.name} account yet? Create one
+        </a>
+        <a
+          href={ACTIVE_VENUE.apiKeyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-white/45 hover:text-white/70"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Where to create the key
+        </a>
+      </div>
+
+      {hasReferral() && (
+        // Said plainly rather than buried in the terms. The link still goes to
+        // the same exchange either way, and nobody pays more for using it -
+        // but they get to know before they click, not after.
+        <p className="mt-1.5 text-[11px] leading-relaxed text-white/35">
+          The sign-up link is a referral link: we earn a share of {ACTIVE_VENUE.name}&apos;s
+          trading fees if you use it. It costs you nothing extra, and connecting an
+          existing account works exactly the same.
+        </p>
+      )}
 
       <Field label="API key" value={apiKey} onChange={setApiKey} autoComplete="off" />
       <Field
