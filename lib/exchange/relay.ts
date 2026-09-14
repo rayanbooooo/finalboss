@@ -90,6 +90,3 @@ export async function syncClock(testnet: boolean): Promise<number> {
   setClockOffset(offset);
   return offset;
 }
-
-export const hostFor = (testnet: boolean) =>
-  testnet ? BYBIT_HOSTS.testnet : BYBIT_HOSTS.mainnet;

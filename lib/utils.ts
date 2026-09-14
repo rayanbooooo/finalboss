@@ -13,14 +13,6 @@ export function generateId(prefix = "id"): string {
 
 const HEX_CHARS = "0123456789abcdef";
 
-export function generateFakeAddress(): string {
-  let result = "0x";
-  for (let i = 0; i < 40; i += 1) {
-    result += HEX_CHARS[Math.floor(Math.random() * HEX_CHARS.length)];
-  }
-  return result;
-}
-
 export function randomBetween(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }

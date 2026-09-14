@@ -35,9 +35,19 @@ export function AffiliateDashboard() {
   useEffect(() => {
     if (!userId) return undefined;
     let cancelled = false;
-    void fetchReferralSummary(userId).then((result) => {
-      if (!cancelled) setLoaded({ userId, summary: result });
-    });
+    fetchReferralSummary(userId)
+      .then((result) => {
+        if (!cancelled) setLoaded({ userId, summary: result });
+      })
+      .catch(() => {
+        // `loading` is derived from `loaded` being null, so swallowing this
+        // left the spinner turning forever with no way out. Settle into an
+        // empty summary instead: the page below it still works, and the
+        // referral link section reports its own unavailability.
+        if (!cancelled) {
+          setLoaded({ userId, summary: { code: null, total: 0, joinedAt: [] } });
+        }
+      });
     return () => {
       cancelled = true;
     };

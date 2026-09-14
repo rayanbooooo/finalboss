@@ -36,6 +36,24 @@ const FORWARDABLE_HEADERS = new Set([
 const RATE_LIMIT_WINDOW_MS = 10_000;
 const RATE_LIMIT_MAX = 60;
 /**
+ * A per-IP allowance spent BEFORE resolveUser runs.
+ *
+ * resolveUser is a network round trip to Supabase on every request, and the
+ * 401 path was not metered at all: the most expensive thing this route does
+ * was the one thing anyone could do without an account, for free, forever.
+ *
+ * Deliberately the same size as the per-user limit rather than smaller. A
+ * signed-in trader passes through this meter too, and anything tighter would
+ * throttle real trading to protect against a flood - so this can never be the
+ * binding constraint for a legitimate caller, while still capping an
+ * anonymous hammer at six requests a second per address.
+ */
+const PRE_AUTH_RATE_LIMIT_MAX = RATE_LIMIT_MAX;
+/** Sweep the bucket map once it gets this large. Without it the map only ever
+ * grew: a key was added per caller and never removed, so an instance that
+ * stayed warm accumulated one entry for every user who had ever called it. */
+const MAX_TRACKED_KEYS = 5_000;
+/**
  * Per-instance only: serverless spreads requests across instances, so this is
  * a speed bump against a runaway client rather than a real quota. A real
  * limiter needs shared storage (Redis/Upstash) and is deliberately out of
@@ -43,12 +61,28 @@ const RATE_LIMIT_MAX = 60;
  */
 const hits = new Map<string, number[]>();
 
-function rateLimited(userId: string): boolean {
+function sweepExpired(now: number) {
+  for (const [key, times] of hits) {
+    const newest = times[times.length - 1];
+    if (newest === undefined || now - newest >= RATE_LIMIT_WINDOW_MS) hits.delete(key);
+  }
+}
+
+function rateLimited(key: string, max = RATE_LIMIT_MAX): boolean {
   const now = Date.now();
-  const recent = (hits.get(userId) ?? []).filter((at) => now - at < RATE_LIMIT_WINDOW_MS);
+  if (hits.size > MAX_TRACKED_KEYS) sweepExpired(now);
+  const recent = (hits.get(key) ?? []).filter((at) => now - at < RATE_LIMIT_WINDOW_MS);
   recent.push(now);
-  hits.set(userId, recent);
-  return recent.length > RATE_LIMIT_MAX;
+  hits.set(key, recent);
+  return recent.length > max;
+}
+
+/** Vercel sets x-forwarded-for on the way in, so the first entry is the real
+ * client. Prefixed, so an address can never collide with a Supabase user id
+ * and share its bucket. */
+function callerKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return `anon:${forwarded || request.headers.get("x-real-ip") || "unknown"}`;
 }
 
 /** Resolves the caller's Supabase user, or null. Live trading requires an
@@ -86,6 +120,12 @@ function bad(message: string, status = 400) {
 }
 
 export async function POST(request: Request) {
+  // Metered before the Supabase lookup, not after: resolveUser is the round
+  // trip worth protecting.
+  if (rateLimited(callerKey(request), PRE_AUTH_RATE_LIMIT_MAX)) {
+    return bad("Too many exchange requests. Slow down.", 429);
+  }
+
   const userId = await resolveUser(request);
   if (!userId) {
     return bad("Live trading requires a signed-in account.", 401);

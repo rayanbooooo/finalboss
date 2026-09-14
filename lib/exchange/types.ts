@@ -1,8 +1,7 @@
 import type { OrderSide } from "@/types/trading";
 
-/** Only Bybit for now, but every shape below is venue-agnostic so a second
+/* Only Bybit for now, but every shape below is venue-agnostic so a second
  * exchange is an adapter rather than a rewrite. */
-export type Venue = "bybit";
 
 export interface ExchangeCredentials {
   apiKey: string;

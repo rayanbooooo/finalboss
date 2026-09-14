@@ -12,6 +12,7 @@ import {
 } from "@/lib/calculations";
 import { getSupabase, positionToRow, rowToPosition, type PositionRow } from "@/lib/supabase";
 import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
+import { useToast } from "@/contexts/ToastContext";
 
 export interface PositionWithPnl extends Position {
   markPrice: number;
@@ -48,6 +49,16 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
   // PromiseLike, not Promise: Supabase's query builder is a thenable.
   const pendingRef = useRef(new Map<string, PromiseLike<unknown>>());
 
+  /**
+   * Persistence failures used to go to console.error and nowhere else, so a
+   * position that never reached the server looked exactly like one that did,
+   * right up until the next page load dropped it without explanation.
+   *
+   * `toast` is stable (useCallback with no dependencies in ToastProvider), so
+   * it sits in the effect dependency arrays below without re-firing them.
+   */
+  const { toast } = useToast();
+
   // Memoized so it's a stable effect dependency - rebuilding it every render
   // would re-fire the sync effect continuously.
   const remote = useMemo(() => {
@@ -81,6 +92,13 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
           if (cancelled) return;
           if (error) {
             console.error("Could not load positions:", error.message);
+            toast({
+              variant: "error",
+              title: "Couldn't load your positions",
+              description:
+                "The account is reachable but this read failed, so the list below may be " +
+                "incomplete. Reload before opening anything new.",
+            });
           } else if (data) {
             const loaded = (data as PositionRow[]).map(rowToPosition);
             loaded.forEach((p) => syncedRef.current.set(p.id, p.status));
@@ -106,7 +124,7 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
       cancelled = true;
       cancelAnimationFrame(raf);
     };
-  }, [remote, storeKey, localKey]);
+  }, [remote, storeKey, localKey, toast]);
 
   // Gated on `restored` so the empty initial state can't overwrite stored
   // positions before the read above has run.
@@ -136,7 +154,19 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
           .from("positions")
           .insert(positionToRow(position, remote.userId))
           .then(({ error }) => {
-            if (error) console.error("Could not save position:", error.message);
+            if (error) {
+              console.error("Could not save position:", error.message);
+              // The position is open on screen and in this tab's state, but it
+              // is not on the server. Staying quiet here means it disappears
+              // on the next page load with no explanation.
+              toast({
+                variant: "error",
+                title: "Position not saved",
+                description:
+                  `${position.symbol} is open in this tab but did not reach your account. ` +
+                  "It will not be here after a reload.",
+              });
+            }
           });
         pendingRef.current.set(position.id, insert);
         return;
@@ -157,12 +187,21 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
           })
           .eq("id", position.id)
           .then(({ error }) => {
-            if (error) console.error("Could not update position:", error.message);
+            if (error) {
+              console.error("Could not update position:", error.message);
+              toast({
+                variant: "error",
+                title: "Position change not saved",
+                description:
+                  `The close on ${position.symbol} did not reach your account, so it may ` +
+                  "come back as open after a reload.",
+              });
+            }
           })
       );
       pendingRef.current.set(position.id, update);
     });
-  }, [positions, restored, remote]);
+  }, [positions, restored, remote, toast]);
 
   const open = useCallback((params: ExecuteOrderParams) => {
     const size = calcPositionSize(params.margin, params.leverage, params.entryPrice);

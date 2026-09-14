@@ -92,10 +92,6 @@ export function setClockOffset(offsetMs: number): void {
   clockOffsetMs = offsetMs;
 }
 
-export function getClockOffset(): number {
-  return clockOffsetMs;
-}
-
 export function signedNow(): number {
   return Date.now() + clockOffsetMs;
 }

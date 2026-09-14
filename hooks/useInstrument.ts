@@ -36,10 +36,15 @@ export function useInstrument(symbol: string | null, enabled: boolean): Instrume
   useEffect(() => {
     if (!key || !symbol || cache.has(key)) return undefined;
     let cancelled = false;
-    void fetchInstrument(symbol).then((result) => {
-      if (result) cache.set(key, result);
-      if (!cancelled && result) setState({ key, instrument: result });
-    });
+    fetchInstrument(symbol)
+      .then((result) => {
+        if (result) cache.set(key, result);
+        if (!cancelled && result) setState({ key, instrument: result });
+      })
+      .catch(() => {
+        // Nothing is cached, so a later render retries. Leaving this unhandled
+        // made a network blip an unhandled rejection instead of a retry.
+      });
     return () => {
       cancelled = true;
     };
