@@ -4,11 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { useTerminal } from "@/contexts/TerminalContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { formatCurrency } from "@/lib/format";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
-import { STORAGE_KEYS } from "@/lib/storageKeys";
+import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
 
+/**
+ * Base key for "this person has seen the walkthrough". Always scoped to an
+ * account before use - see `doneKey` below.
+ */
 export const TOUR_STORAGE_KEY = STORAGE_KEYS.tourDone;
 const TOUR_START_EVENT = STORAGE_KEYS.startTour;
 
@@ -127,6 +132,21 @@ function placeCard(rect: Rect, cardWidth: number, cardHeight: number) {
 
 export function GuidedTour() {
   const { availableBalance } = useTerminal();
+  const { userId, isResolved } = useOnboarding();
+
+  /**
+   * Scoped per account, which is the whole fix.
+   *
+   * This flag used to be one unscoped key for the whole browser, so it
+   * described a device rather than a person. Anyone who looked around the
+   * terminal before signing up marked the walkthrough "seen", and the account
+   * they then created never got it - on the one screen where being lost costs
+   * real money. A new account has a user id nothing has ever written against,
+   * so it cannot inherit someone else's dismissal.
+   */
+  const doneKey = scopedKey(STORAGE_KEYS.tourDone, userId);
+  /** The account we have already made the show/don't-show call for. */
+  const decidedForRef = useRef<string | null>(null);
   const [step, setStep] = useState<number | null>(null);
   // Keyed by the target it belongs to, so a stale measurement from the
   // previous step is simply ignored on render rather than having to be
@@ -134,11 +154,22 @@ export function GuidedTour() {
   const [measured, setMeasured] = useState<Measurement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
+  // "Replay walkthrough" works whoever is signed in, so this listener is not
+  // gated on the account resolving.
   useEffect(() => {
     const open = () => setStep(0);
     window.addEventListener(TOUR_START_EVENT, open);
+    return () => window.removeEventListener(TOUR_START_EVENT, open);
+  }, []);
+
+  // Whether to open it unprompted, decided once we know whose account this is.
+  // Gated on `isResolved` because auth lands after mount: deciding earlier
+  // reads the signed-out key and would show a returning user the tour again.
+  useEffect(() => {
+    if (!isResolved || decidedForRef.current === doneKey) return undefined;
 
     const raf = requestAnimationFrame(() => {
+      decidedForRef.current = doneKey;
       // An explicit request always wins, including after the tour has been
       // completed once - that is the whole point of asking for it again.
       if (startRequested) {
@@ -147,27 +178,24 @@ export function GuidedTour() {
         return;
       }
       try {
-        if (window.localStorage.getItem(TOUR_STORAGE_KEY) !== "true") setStep(0);
+        if (window.localStorage.getItem(doneKey) !== "true") setStep(0);
       } catch {
         // Storage blocked - skip the tour rather than trapping the user in it.
       }
     });
 
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener(TOUR_START_EVENT, open);
-    };
-  }, []);
+    return () => cancelAnimationFrame(raf);
+  }, [isResolved, doneKey]);
 
   const finish = useCallback(() => {
     setStep(null);
     setMeasured(null);
     try {
-      window.localStorage.setItem(TOUR_STORAGE_KEY, "true");
+      window.localStorage.setItem(doneKey, "true");
     } catch {
       // Not persisting only means it runs again next visit.
     }
-  }, []);
+  }, [doneKey]);
 
   const current = step === null ? null : STEPS[step];
   const target = current?.target;

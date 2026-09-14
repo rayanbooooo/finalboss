@@ -10,6 +10,7 @@ import { StepProgress } from "@/components/ui/StepProgress";
 import { LeverageSlider } from "@/components/terminal/LeverageSlider";
 import { MIN_LEVERAGE } from "@/lib/calculations";
 import { SuccessState } from "@/components/signup/SuccessState";
+import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSignOut } from "@/hooks/useSignOut";
 import { safeRedirect } from "@/lib/navigation";
@@ -194,6 +195,17 @@ export function OnboardingWizard() {
       setAwaitingConfirmation(true);
       return;
     }
+    // Ask for the walkthrough explicitly rather than relying on the absence of
+    // a "seen it" flag. Scoping that flag per account already means a new one
+    // cannot inherit someone else's dismissal, but this covers the case that
+    // does not go through a fresh key at all - a browser where the signed-out
+    // profile had already completed it. A brand new account should never land
+    // on a leveraged trading screen with no explanation.
+    //
+    // startGuidedTour leaves a module-level request that survives the client
+    // navigation below and is consumed when GuidedTour mounts on /terminal, so
+    // it also works when the redirect goes somewhere else first.
+    startGuidedTour();
     setDone(true);
   };
 
