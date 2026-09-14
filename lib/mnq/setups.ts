@@ -86,6 +86,15 @@ export interface ScanOptions {
   sweepWindow: number;
   /** Minimum R:R for a setup to be emitted at all. */
   minRr: number;
+  /**
+   * Cap on how far a target may sit from entry, as a multiple of the stop.
+   *
+   * Without it, findTarget will happily select an untapped pool 380 points
+   * away from an 8-point stop and report a 46R setup. That number is not an
+   * edge, it is a target price will not reach inside the trade's lifetime, and
+   * the handful that do land distort every expectancy statistic downstream.
+   */
+  maxTargetR: number;
   /** Minimum score for a setup to be emitted at all. */
   minScore: number;
   /** Ticks of padding beyond the structural stop level. */
@@ -107,7 +116,10 @@ export const DEFAULT_SCAN_OPTIONS: ScanOptions = {
   swingLookback: 3,
   sweepWindow: 12,
   minRr: 1.5,
-  minScore: 45,
+  maxTargetR: 6,
+  // 45 surfaced 163 setups across a single trading day — technically correct
+  // and useless to read. A scanner's job is to shorten the list.
+  minScore: 60,
   stopBufferTicks: 4,
   minStopPoints: 5,
   killzonesOnly: true,
@@ -138,13 +150,17 @@ export function scanSetups(candles: Candle[], options: Partial<ScanOptions> = {}
   const atr = atrSeries(candles);
 
 
-  const setups: Setup[] = [];
-  const sweepsByIndex = new Map<number, LiquiditySweep[]>();
-  for (const sweep of sweeps) {
-    const list = sweepsByIndex.get(sweep.index) ?? [];
-    list.push(sweep);
-    sweepsByIndex.set(sweep.index, list);
-  }
+  /*
+   * Keyed by the thing the setup is actually about — its pattern, direction and
+   * the zone being entered — rather than by bar.
+   *
+   * A sweep stays eligible for `sweepWindow` bars and a zone can sit unmitigated
+   * for far longer, so emitting per-bar produced the same setup a dozen times in
+   * a row with near-identical levels. That is not a dozen opportunities: it is
+   * one, counted twelve times, and it corrupts every statistic downstream by
+   * weighting whichever trade happened to linger. Highest score wins the slot.
+   */
+  const byZone = new Map<string, Setup>();
 
   for (let i = opts.swingLookback; i < candles.length; i++) {
     const candle = candles[i];
@@ -194,15 +210,14 @@ export function scanSetups(candles: Candle[], options: Partial<ScanOptions> = {}
       const setup = buildSetup({ candle, index: i, candidate, structure, pools, atrValue, opts, recentSweep });
       if (!setup) continue;
       if (setup.rr < opts.minRr || setup.score < opts.minScore) continue;
-      // One setup per bar per direction; the highest score wins.
-      const clash = setups.find((s) => s.index === i && s.direction === setup.direction);
-      if (clash) {
-        if (setup.score > clash.score) setups[setups.indexOf(clash)] = setup;
-        continue;
-      }
-      setups.push(setup);
+
+      const key = `${setup.pattern}|${setup.direction}|${candidate.zone.low.toFixed(2)}|${candidate.zone.high.toFixed(2)}`;
+      const existing = byZone.get(key);
+      if (!existing || setup.score > existing.score) byZone.set(key, setup);
     }
   }
+
+  const setups = [...byZone.values()].sort((a, b) => a.index - b.index);
 
   return { setups: resolveSetups(setups, candles), structure, fvgs, orderBlocks, pools, sweeps };
 }
@@ -270,7 +285,7 @@ function buildSetup(args: {
   // Two floors: relative to current volatility, and an absolute minimum.
   if (stopPoints < Math.max(opts.minStopPoints, atrValue * 0.25)) return null;
 
-  const target = roundToTick(findTarget(entry, direction, pools, index, stopPoints));
+  const target = roundToTick(findTarget(entry, direction, pools, index, stopPoints, opts.maxTargetR));
   const targetOnCorrectSide = direction === "bullish" ? target > entry : target < entry;
   if (!targetOnCorrectSide) return null;
 
@@ -315,10 +330,22 @@ function buildSetup(args: {
  * premise: price is going somewhere to take stops, and that somewhere is a
  * level, not a number of points.
  */
-function findTarget(entry: number, direction: Direction, pools: LiquidityPool[], index: number, stopPoints: number): number {
+function findTarget(
+  entry: number,
+  direction: Direction,
+  pools: LiquidityPool[],
+  index: number,
+  stopPoints: number,
+  maxTargetR: number,
+): number {
   const wanted = direction === "bullish" ? "buy-side" : "sell-side";
+  const maxDistance = stopPoints * maxTargetR;
   const reachable = pools.filter(
-    (p) => p.index <= index && p.sweptIndex === null && (direction === "bullish" ? p.price > entry : p.price < entry),
+    (p) =>
+      p.index <= index &&
+      p.sweptIndex === null &&
+      (direction === "bullish" ? p.price > entry : p.price < entry) &&
+      Math.abs(p.price - entry) <= maxDistance,
   );
 
   if (reachable.length > 0) {

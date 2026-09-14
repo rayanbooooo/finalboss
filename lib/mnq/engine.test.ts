@@ -14,7 +14,7 @@ import {
   type PropRules,
 } from "@/lib/mnq/propRules";
 import { generateMnqCandles } from "@/lib/mnq/feed";
-import { scanSetups, summarise } from "@/lib/mnq/setups";
+import { DEFAULT_SCAN_OPTIONS, scanSetups, summarise } from "@/lib/mnq/setups";
 import type { Candle } from "@/types/market";
 
 /** Build a candle tersely; volume is irrelevant to every assertion here. */
@@ -302,6 +302,11 @@ describe("scanner", () => {
       expect(isKillzone(setup.time)).toBe(true);
       expect(setup.stopPoints).toBeGreaterThan(0);
       expect(setup.rr).toBeGreaterThanOrEqual(1.5);
+      // Targets are capped relative to the stop. Uncapped, findTarget would
+      // select an untapped pool 380 points from an 8-point stop and call it a
+      // 46R setup — a price that will not be reached inside the trade, and one
+      // that distorts every expectancy figure downstream.
+      expect(setup.rr).toBeLessThanOrEqual(DEFAULT_SCAN_OPTIONS.maxTargetR);
       expect(setup.score).toBeGreaterThanOrEqual(45);
       // Stop and target must straddle entry in the right directions.
       if (setup.direction === "bullish") {
