@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { clsx } from "clsx";
 import { useMnqEngine, type GatedSetup } from "@/hooks/useMnqEngine";
 import { useMnqForecast } from "@/hooks/useMnqForecast";
@@ -23,21 +23,23 @@ const INTERVALS: { label: string; ms: number }[] = [
 export function EngineShell() {
   const engine = useMnqEngine();
   const { forecast, isLoading: forecastLoading } = useMnqForecast(engine.bars?.candles);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pickedId, setPickedId] = useState<string | null>(null);
 
-  // Auto-select the newest setup so the chart is never blank on first load,
-  // but never override a selection the user made.
-  useEffect(() => {
-    setSelectedId((current) => {
-      if (current && engine.setups.some((setup) => setup.id === current)) return current;
-      return engine.setups[0]?.id ?? null;
-    });
-  }, [engine.setups]);
+  /*
+   * Selection is derived, not stored-and-synced.
+   *
+   * The obvious version — an effect that setStates the default selection when
+   * the setup list changes — costs a second render pass on every refetch and
+   * fights the user's own choice on the frame the list updates. Falling back to
+   * the newest setup only when the picked one is gone gets the same behaviour
+   * with no effect at all.
+   */
+  const selected = useMemo<GatedSetup | null>(() => {
+    const picked = engine.setups.find((setup) => setup.id === pickedId);
+    return picked ?? engine.setups[0] ?? null;
+  }, [engine.setups, pickedId]);
 
-  const selected = useMemo<GatedSetup | null>(
-    () => engine.setups.find((setup) => setup.id === selectedId) ?? null,
-    [engine.setups, selectedId],
-  );
+  const selectedId = selected?.id ?? null;
 
   const candles = engine.bars?.candles ?? [];
   const priorClose = candles.length > 1 ? candles[candles.length - 2].close : null;
@@ -108,7 +110,7 @@ export function EngineShell() {
                 candles={candles}
                 scan={engine.scan}
                 selected={selected}
-                onSelect={(setup) => setSelectedId(setup.id)}
+                onSelect={(setup) => setPickedId(setup.id)}
               />
             )}
           </div>
@@ -135,7 +137,7 @@ export function EngineShell() {
               <SetupFeed
                 setups={engine.setups}
                 selectedId={selectedId}
-                onSelect={(setup) => setSelectedId(setup.id)}
+                onSelect={(setup) => setPickedId(setup.id)}
               />
             )}
           </div>

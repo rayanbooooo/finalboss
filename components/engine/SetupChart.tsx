@@ -47,15 +47,23 @@ export function SetupChart({ candles, scan, selected, onSelect }: SetupChartProp
   const overlayRef = useRef<ZoneOverlay | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
-  // Held in a ref so the click handler is registered once, yet always calls
-  // the newest callback. Re-registering it on every render would leak
-  // subscriptions across the chart's lifetime.
+  /*
+   * The chart's click subscription is registered once for the chart's life, so
+   * it needs the newest callback and setups without being re-registered (which
+   * would leak subscriptions). Refs carry them across — written in effects
+   * rather than during render, because a render-phase ref write is invisible to
+   * React and can leave the handler reading a stale value after a bail-out.
+   */
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const setupsRef = useRef<Setup[]>([]);
-  setupsRef.current = scan?.setups ?? [];
-  const selectedRef = useRef<Setup | null>(null);
-  selectedRef.current = selected;
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  useEffect(() => {
+    setupsRef.current = scan?.setups ?? [];
+  }, [scan]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -182,8 +190,8 @@ export function SetupChart({ candles, scan, selected, onSelect }: SetupChartProp
     overlay.setZones(zones);
 
     const ranked = [...scan.setups].sort((a, b) => b.score - a.score).slice(0, MAX_MARKERS);
-    if (selectedRef.current && !ranked.some((s) => s.id === selectedRef.current?.id)) {
-      ranked.push(selectedRef.current);
+    if (selected && !ranked.some((candidate) => candidate.id === selected.id)) {
+      ranked.push(selected);
     }
 
     markers.setMarkers(

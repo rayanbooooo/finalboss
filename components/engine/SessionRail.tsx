@@ -33,9 +33,15 @@ export function SessionRail() {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    setNow(Date.now());
+    // Priming with a frame callback rather than calling setNow() straight from
+    // the effect body: a synchronous setState there triggers an immediate extra
+    // render pass before paint, for a clock that is about to tick anyway.
+    const frame = window.requestAnimationFrame(() => setNow(Date.now()));
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(id);
+    };
   }, []);
 
   const parts = now === null ? null : etParts(now);
