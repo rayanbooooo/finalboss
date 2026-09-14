@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
 import { TerminalProvider } from "@/contexts/TerminalContext";
 import { ExchangeProvider } from "@/contexts/ExchangeContext";
-import { TerminalGate } from "@/components/terminal/TerminalGate";
+import { TerminalBoundary } from "@/components/terminal/TerminalBoundary";
 import { TerminalSidebar } from "@/components/terminal/TerminalSidebar";
 import { FundingModal } from "@/components/terminal/FundingModal";
 import { MobileTabBar } from "@/components/terminal/MobileTabBar";
 import { ExchangeModals } from "@/components/terminal/ExchangeModals";
+import { SaveRunPrompt } from "@/components/terminal/SaveRunPrompt";
 
 export default function TerminalRouteLayout({ children }: { children: ReactNode }) {
   return (
-    <TerminalGate>
+    <TerminalBoundary>
       {/* Outside TerminalProvider: the terminal will read live balances and
           positions from the exchange connection, so the connection has to
           exist first. */}
@@ -21,13 +22,19 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
           {/* pb-16 on mobile keeps the last panel clear of the tab bar. */}
           <div className="flex min-h-screen pb-16 lg:h-screen lg:overflow-hidden lg:pb-0">
             <TerminalSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              {children}
+              {/* Below the terminal rather than above it: it appears after a
+                  position closes, and pushing the chart down at that moment
+                  would move the thing they are looking at. */}
+              <SaveRunPrompt />
+            </div>
           </div>
           <MobileTabBar />
           <FundingModal />
           <ExchangeModals />
         </TerminalProvider>
       </ExchangeProvider>
-    </TerminalGate>
+    </TerminalBoundary>
   );
 }

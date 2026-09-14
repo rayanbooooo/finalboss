@@ -24,6 +24,31 @@ const STORAGE_KEY = STORAGE_KEYS.positions;
 /** Open positions are always kept; only closed history is trimmed. */
 const MAX_STORED_HISTORY = 200;
 
+/** Where a signed-out visitor's demo trades live. */
+const ANONYMOUS_KEY = scopedKey(STORAGE_KEY, null);
+/** Ceiling on how many of those follow them into a new account. */
+const MAX_ADOPTED = 50;
+
+/**
+ * The demo run someone did before they had an account.
+ *
+ * The terminal is open to anyone, so a first visit is usually several trades
+ * long and finishes with a liquidation - and the reason we then offer them an
+ * account is to keep that history. Reading it here is what makes that offer
+ * true rather than a line of marketing: without it the moment a session lands
+ * the hook switches to the remote path and the whole run silently disappears.
+ */
+function readAnonymousRun(): Position[] {
+  try {
+    const raw = window.localStorage.getItem(ANONYMOUS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as Position[]).slice(0, MAX_ADOPTED) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Each position is marked against its own market's price (via
  * position.marketId), never against whichever market the UI currently has
@@ -88,7 +113,7 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
         .from("positions")
         .select("*")
         .order("opened_at", { ascending: false })
-        .then(({ data, error }) => {
+        .then(async ({ data, error }) => {
           if (cancelled) return;
           if (error) {
             console.error("Could not load positions:", error.message);
@@ -100,7 +125,40 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
                 "incomplete. Reload before opening anything new.",
             });
           } else if (data) {
-            const loaded = (data as PositionRow[]).map(rowToPosition);
+            let loaded = (data as PositionRow[]).map(rowToPosition);
+
+            // A brand new account with a demo run behind it: move that run onto
+            // the account. Only when the account has nothing of its own, so
+            // signing in on a friend's laptop can never graft their trades onto
+            // an established history. Position ids are already uuids (see
+            // `open` below), so they carry over as their own primary keys and
+            // stay stable if the same rows sync again.
+            if (loaded.length === 0) {
+              const run = readAnonymousRun();
+              if (run.length > 0) {
+                const { error: adoptError } = await remote.supabase
+                  .from("positions")
+                  .insert(run.map((position) => positionToRow(position, remote.userId)));
+                if (cancelled) return;
+                if (adoptError) {
+                  console.error("Could not keep the demo run:", adoptError.message);
+                } else {
+                  try {
+                    window.localStorage.removeItem(ANONYMOUS_KEY);
+                  } catch {
+                    // Left behind only means it is read once more and the
+                    // `loaded.length === 0` guard above declines it.
+                  }
+                  loaded = run;
+                  toast({
+                    variant: "success",
+                    title: "Your demo history came with you",
+                    description: `${run.length} position${run.length === 1 ? "" : "s"} from before you signed up are now saved to this account.`,
+                  });
+                }
+              }
+            }
+
             loaded.forEach((p) => syncedRef.current.set(p.id, p.status));
             setPositions(loaded);
           }

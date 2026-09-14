@@ -1,8 +1,11 @@
 "use client";
 
 import { Lock, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTerminal, type AccountMode } from "@/contexts/TerminalContext";
 import { useExchange } from "@/contexts/ExchangeContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
+import { authLink } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,15 +22,21 @@ const OPTIONS: { value: AccountMode; label: string; needsKey: boolean }[] = [
 ];
 
 /** What stands between the user and this mode, if anything. */
-type Blocker = "none" | "no-key" | "locked" | "pending" | "load-error";
+type Blocker = "none" | "no-account" | "no-key" | "locked" | "pending" | "load-error";
 
 export function AccountModeSwitch() {
   const { accountMode, setAccountMode } = useTerminal();
   const { isConnected, isUnlocked, sessionOnly, ready, loadError, openConnect, openUnlock } =
     useExchange();
+  // The demo is open to everyone now, so someone can reach this switch with no
+  // account at all. A key is stored against an account, so for them the missing
+  // piece is the account - not the key the old caption asked for.
+  const { isOnboarded } = useOnboarding();
+  const router = useRouter();
 
   function blockerFor(option: (typeof OPTIONS)[number]): Blocker {
     if (!option.needsKey) return "none";
+    if (!isOnboarded) return "no-account";
     if (!ready) return "pending";
     // Ordered before the no-key check on purpose: a lookup that failed is not
     // the same as an account with no key, and saying "connect one" to someone
@@ -46,6 +55,7 @@ export function AccountModeSwitch() {
     // and there was no route from here to the connect flow in the first place.
     // A session-only key still works while the lookup is failing, so this
     // stays actionable rather than dead.
+    if (blocker === "no-account") return router.push(authLink("/signup", "/terminal"));
     if (blocker === "no-key" || blocker === "load-error") return openConnect();
     if (blocker === "locked") return openUnlock();
     if (blocker === "none") return setAccountMode(option.value);
@@ -60,7 +70,10 @@ export function AccountModeSwitch() {
     .map(blockerFor)
     .find(
       (blocker) =>
-        blocker === "no-key" || blocker === "locked" || blocker === "load-error"
+        blocker === "no-account" ||
+        blocker === "no-key" ||
+        blocker === "locked" ||
+        blocker === "load-error"
     );
   const shownBlocker = activeBlocker !== "none" ? activeBlocker : (venueBlocker ?? "none");
   const hasLoadError = shownBlocker === "load-error";
@@ -124,6 +137,8 @@ export function AccountModeSwitch() {
 
 function captionFor(blocker: Blocker): string | null {
   switch (blocker) {
+    case "no-account":
+      return "Create an account to connect an exchange key and trade real money.";
     case "load-error":
       return "Couldn't check for a saved key — the account service isn't reachable.";
     case "no-key":

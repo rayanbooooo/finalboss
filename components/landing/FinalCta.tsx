@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 
 export function FinalCta() {
   const { isOnboarded } = useOnboarding();
-  const href = isOnboarded ? "/terminal" : "/signup";
 
   return (
     <section className="relative overflow-hidden px-4 py-24 sm:px-6 lg:px-8">
@@ -22,12 +21,15 @@ export function FinalCta() {
           Your first trade is one click away.
         </h2>
         <p className="mx-auto mt-4 max-w-md text-white/55">
-          Connect a wallet or sign up with email, and start trading live
-          perpetual markets in under a minute.
+          Open the terminal and trade demo funds on live prices right now. No
+          account needed to try it, nothing to deposit, nothing to lose.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href={href} className={cn(buttonVariants("primary", "lg"), "w-full sm:w-auto")}>
-            {isOnboarded ? "Launch App" : "Create Account"} <ArrowRight className="h-4 w-4" />
+          <Link
+            href="/terminal"
+            className={cn(buttonVariants("primary", "lg"), "w-full sm:w-auto")}
+          >
+            {isOnboarded ? "Launch App" : "Try it now"} <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/affiliates"

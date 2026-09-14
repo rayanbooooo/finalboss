@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { CryptoIcon } from "@/components/ui/CryptoIcon";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Reveal } from "@/components/ui/Reveal";
@@ -16,8 +15,7 @@ const SPARK_SMOOTHING_PERIOD = 6;
 
 export function MarketsSection() {
   const { markets } = useGlobalMarketFeed();
-  const { isOnboarded } = useOnboarding();
-  const href = isOnboarded ? "/terminal" : "/signup";
+  const href = "/terminal";
 
   return (
     <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">

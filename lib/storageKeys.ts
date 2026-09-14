@@ -18,15 +18,17 @@ export const STORAGE_KEYS = {
   pendingReferral: "finalboss:pending-referral",
   sidebarCollapsed: "finalboss:sidebar-collapsed",
   privacyAck: "finalboss:privacy-ack",
+  saveRunDismissed: "finalboss:save-run-dismissed",
 } as const;
 
 /**
  * Keys that belong to whoever is signed in, and so must not outlive them.
  *
- * `sidebarCollapsed` and `privacyAck` are deliberately absent: they describe
- * the browser rather than the account, and resetting a collapsed sidebar or
- * re-showing a dismissed privacy notice on every sign-out would be a bug of
- * its own.
+ * `sidebarCollapsed`, `privacyAck` and `saveRunDismissed` are deliberately
+ * absent: they describe the browser rather than the account, and resetting a
+ * collapsed sidebar or re-showing a dismissed notice on every sign-out would be
+ * a bug of its own. `saveRunDismissed` in particular only ever applies to
+ * someone who has no account, so clearing it per account would mean nothing.
  */
 export const PER_USER_STORAGE_KEYS: readonly string[] = [
   STORAGE_KEYS.profile,

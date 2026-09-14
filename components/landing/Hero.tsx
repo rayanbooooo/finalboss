@@ -30,7 +30,10 @@ export function Hero() {
   const { activeMarket: market } = useGlobalMarketFeed();
   const { isOnboarded } = useOnboarding();
   const positive = market.change24hPct >= 0;
-  const launchHref = isOnboarded ? "/terminal" : "/signup";
+  // Unconditional. "Launch App" used to send a stranger to /signup, putting a
+  // four-step wizard between them and the one thing worth seeing. The demo is
+  // the pitch; it comes before the form.
+  const launchHref = "/terminal";
 
   const [side, setSide] = useState<OrderSide>("long");
   const [leverage, setLeverage] = useState(MIN_LEVERAGE);
@@ -93,8 +96,9 @@ export function Hero() {
             >
               Launch App <ArrowRight className="h-4 w-4" />
             </Link>
-            {/* Offering "Sign Up" to someone who already has an account sends
-                them into the wizard and makes it look like nothing saved. */}
+            {/* Secondary, and only for someone without an account - offering
+                "Sign Up" to someone who has one sends them into the wizard and
+                makes it look like nothing saved. */}
             {!isOnboarded && (
               <Link
                 href="/signup"
