@@ -111,12 +111,32 @@ PYTHONPATH=$PWD/Kronos uvicorn main:app --port 8000
 | `KRONOS_DEVICE` | auto | `cuda:0`, `mps`, or `cpu` |
 | `KRONOS_SERVICE_TOKEN` | unset | Bearer token; auth is off when unset |
 
+## Developing without a GPU
+
+`dev_server.py` runs this exact app and a real `KronosPredictor` with a tiny,
+randomly-initialised model. The forecasts are noise; the point is that the
+frontend can be built and tested without a GPU, without downloading weights,
+and without reaching HuggingFace.
+
+```bash
+KRONOS_REPO=/path/to/Kronos python3 dev_server.py --port 8000
+KRONOS_SERVICE_URL=http://127.0.0.1:8000 npm run dev
+```
+
+`test_forecast.py` (5 tests) runs the same way and covers the request shape, the
+DataFrame handed to the model, timestamp derivation, the sampling loop, the
+percentile band, probUp, auth and the error paths.
+
+What that proves: the service will not 500 on first deploy because a column is
+missing. What it does not prove: that the forecasts are any good. Weight quality
+is a separate question these tests cannot answer.
+
 ## Honest limitations
 
-- **Not verified end-to-end here.** The service is written against the upstream
-  `KronosPredictor` signature as it exists in the repo, but it has not been run
-  against real weights in this environment — no GPU, and the weights are not
-  downloaded. Run `/health`, then a real `/forecast`, before relying on it.
+- **Never run against real weights.** The plumbing is verified (above), but this
+  has not been executed against pretrained Kronos — no GPU here, and
+  huggingface.co was unreachable from the build environment. Run `/health`, then
+  a real `/forecast`, before relying on the output.
 - **CPU is slow.** 16 sampled paths at a 24-bar horizon is minutes on CPU, not
   seconds. Use a GPU, drop `KRONOS_SAMPLES`, or cache aggressively.
 - **Future timestamps ignore session closes.** `y_timestamp` continues at the
