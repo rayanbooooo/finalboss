@@ -11,7 +11,13 @@ import { createSimulatedMnqSource, resolveMnqSource, type MnqBars } from "@/lib/
  * flag in the payload is what the UI badges off.
  */
 
-const MAX_LIMIT = 1500;
+/**
+ * Raised from 1500 once real bars were wired up: at 1m that cap is about a day
+ * and a half of session, which is far too short a sample to judge a strategy
+ * on. Yahoo serves 7 days at 1m and 60 days at 5m/15m, and the useful question
+ * needs the longer end of that.
+ */
+const MAX_LIMIT = 6000;
 const ALLOWED_INTERVALS_MS = new Set([60_000, 300_000, 900_000, 3_600_000]);
 
 export async function GET(request: Request) {
