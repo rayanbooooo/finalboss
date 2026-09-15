@@ -65,16 +65,26 @@ export function EngineShell() {
           )}
         </div>
 
+        {/* Three states, not two. Yahoo is real price data but delayed and
+            unofficial, so badging it the same green as a paid exchange feed
+            would overstate it — and the same amber as invented prices would
+            understate it just as badly. */}
         <span
           className={clsx(
             "rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider",
-            engine.bars?.isLive
+            engine.bars?.source === "databento"
               ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300"
-              : "border-amber-400/40 bg-amber-500/15 text-amber-300",
+              : engine.bars?.source === "yahoo"
+                ? "border-sky-400/40 bg-sky-500/15 text-sky-300"
+                : "border-amber-400/40 bg-amber-500/15 text-amber-300",
           )}
           title={engine.bars?.note}
         >
-          {engine.bars?.isLive ? "Live · Databento" : "Simulated"}
+          {engine.bars?.source === "databento"
+            ? "Live · Databento"
+            : engine.bars?.source === "yahoo"
+              ? "Real · delayed"
+              : "Simulated"}
         </span>
 
         <div className="ml-auto flex items-center gap-1">

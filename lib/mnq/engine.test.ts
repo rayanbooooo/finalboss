@@ -13,7 +13,7 @@ import {
   riskBudgetUsd,
   type PropRules,
 } from "@/lib/mnq/propRules";
-import { generateMnqCandles } from "@/lib/mnq/feed";
+import { generateMnqCandles, parseYahooChart, parseDatabentoJsonl } from "@/lib/mnq/feed";
 import { DEFAULT_SCAN_OPTIONS, scanSetups, summarise } from "@/lib/mnq/setups";
 import type { Candle } from "@/types/market";
 
@@ -337,5 +337,94 @@ describe("scanner", () => {
       if (s.status === "stopped") expect(s.realisedR).toBe(-1);
       if (s.status === "target") expect(s.realisedR).toBeCloseTo(s.rr, 10);
     }
+  });
+});
+
+
+describe("real-data parsers", () => {
+  it("drops Yahoo's null-padded bars instead of coercing them to zero", () => {
+    // Yahoo pads gaps — holidays, the CME maintenance hour, thin overnight
+    // minutes — with nulls. Number(null) is 0, and a single zero-priced bar
+    // wrecks every ATR, swing and zone computed downstream, so these must be
+    // dropped rather than converted.
+    const payload = {
+      chart: {
+        result: [
+          {
+            timestamp: [1_789_000_000, 1_789_000_060, 1_789_000_120, 1_789_000_180],
+            indicators: {
+              quote: [
+                {
+                  open: [24_800.1, null, 24_805.3, 24_810.0],
+                  high: [24_802.4, null, 24_808.1, 24_812.6],
+                  low: [24_798.2, null, 24_803.0, 24_808.4],
+                  close: [24_801.0, null, 24_807.2, 24_811.1],
+                  volume: [1200, null, 1400, 1550],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+
+    const candles = parseYahooChart(payload);
+    expect(candles).toHaveLength(3);
+    for (const candle of candles) {
+      expect(candle.open).toBeGreaterThan(20_000);
+      expect(candle.low).toBeGreaterThan(20_000);
+    }
+    // Milliseconds, not the seconds Yahoo sends.
+    expect(candles[0].time).toBe(1_789_000_000_000);
+    // Snapped to the 0.25 grid.
+    expect(candles[0].open % 0.25).toBe(0);
+  });
+
+  it("returns nothing for a Yahoo error payload rather than throwing", () => {
+    expect(parseYahooChart({ chart: { result: null, error: { description: "No data" } } })).toEqual([]);
+    expect(parseYahooChart({})).toEqual([]);
+    expect(parseYahooChart(null)).toEqual([]);
+  });
+
+  it("keeps Yahoo bars in ascending time order", () => {
+    const payload = {
+      chart: {
+        result: [
+          {
+            timestamp: [1_789_000_120, 1_789_000_000, 1_789_000_060],
+            indicators: {
+              quote: [
+                {
+                  open: [3, 1, 2], high: [3, 1, 2], low: [3, 1, 2], close: [3, 1, 2], volume: [1, 1, 1],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const times = parseYahooChart(payload).map((c) => c.time);
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  it("scales Databento fixed-point prices and nanosecond timestamps", () => {
+    const line = JSON.stringify({
+      hd: { ts_event: "1789000000000000000" },
+      open: "24800250000000", high: "24810500000000",
+      low: "24795000000000", close: "24805750000000", volume: "1234",
+    });
+    const [candle] = parseDatabentoJsonl(line);
+    expect(candle.time).toBe(1_789_000_000_000);
+    expect(candle.open).toBeCloseTo(24_800.25, 6);
+    expect(candle.close).toBeCloseTo(24_805.75, 6);
+    expect(candle.volume).toBe(1234);
+  });
+
+  it("loses one malformed Databento line, not the whole response", () => {
+    const good = JSON.stringify({
+      hd: { ts_event: "1789000060000000000" },
+      open: "1000000000", high: "1000000000", low: "1000000000", close: "1000000000", volume: "1",
+    });
+    expect(parseDatabentoJsonl(`{ not json\n${good}\n`)).toHaveLength(1);
   });
 });

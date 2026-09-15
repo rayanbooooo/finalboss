@@ -85,7 +85,7 @@ export function EdgePanel({ stats, setups, isLive }: EdgePanelProps) {
           </>
         )}
         {isLive ? (
-          <>Resolved on real CME bars. Same-bar stop and target resolves as a loss.</>
+          <>Resolved on real bars. Same-bar stop and target resolves as a loss.</>
         ) : (
           <span className="text-amber-300/80">
             Synthetic bars — this measures the simulator, not an edge. Connect Databento or run the Nautilus harness.

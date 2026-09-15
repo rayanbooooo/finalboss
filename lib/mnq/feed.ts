@@ -23,7 +23,7 @@ export interface MnqBarRequest {
 export interface MnqBars {
   symbol: string;
   candles: Candle[];
-  source: "simulated" | "databento";
+  source: "simulated" | "databento" | "yahoo";
   /** True only for real exchange data. */
   isLive: boolean;
   /** Shown under the LIVE / SIMULATED badge. */
@@ -31,7 +31,7 @@ export interface MnqBars {
 }
 
 export interface MnqBarSource {
-  id: "simulated" | "databento";
+  id: "simulated" | "databento" | "yahoo";
   label: string;
   isLive: boolean;
   fetchBars(request: MnqBarRequest): Promise<MnqBars>;
@@ -334,16 +334,173 @@ export function parseDatabentoJsonl(body: string): Candle[] {
   return candles.sort((a, b) => a.time - b.time);
 }
 
+/* -------------------------------------------------------------------------
+ * Yahoo source — real prices, free, no key
+ * ---------------------------------------------------------------------- */
+
+const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
+
+/**
+ * Yahoo symbols to try, in order.
+ *
+ * MNQ=F is the exact instrument. NQ=F is the fallback and is NOT a compromise
+ * on price: the Micro and the E-mini are written on the same index, so their
+ * quotes in index points are the same series — only the contract multiplier
+ * differs ($2 vs $20 a point), and that lives in contract.ts, not here. The
+ * E-mini is far more heavily traded, so its bars are usually the cleaner ones.
+ */
+const YAHOO_SYMBOLS = ["MNQ=F", "NQ=F"] as const;
+
+/** Yahoo caps 1m history at ~7 days and 5m/15m at ~60. Asking for more returns
+ * an error rather than silently truncating. */
+function yahooParams(intervalMs: number): { interval: string; range: string } {
+  if (intervalMs <= 60_000) return { interval: "1m", range: "7d" };
+  if (intervalMs <= 300_000) return { interval: "5m", range: "60d" };
+  if (intervalMs <= 900_000) return { interval: "15m", range: "60d" };
+  return { interval: "1h", range: "730d" };
+}
+
+interface YahooChartResponse {
+  chart?: {
+    result?: {
+      timestamp?: number[];
+      indicators?: {
+        quote?: {
+          open?: (number | null)[];
+          high?: (number | null)[];
+          low?: (number | null)[];
+          close?: (number | null)[];
+          volume?: (number | null)[];
+        }[];
+      };
+    }[];
+    error?: { description?: string } | null;
+  };
+}
+
+/**
+ * Parse Yahoo's chart payload into candles.
+ *
+ * Yahoo pads its arrays with nulls for bars that did not trade — holidays, the
+ * CME maintenance hour, thin overnight minutes. Those must be dropped rather
+ * than coerced, because Number(null) is 0 and a single zero-priced bar wrecks
+ * every ATR, swing and zone computed downstream.
+ */
+export function parseYahooChart(payload: unknown): Candle[] {
+  const result = (payload as YahooChartResponse)?.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  const times = result?.timestamp;
+  if (!times || !quote) return [];
+
+  const candles: Candle[] = [];
+  for (let i = 0; i < times.length; i++) {
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+
+    if (
+      typeof open !== "number" || typeof high !== "number" ||
+      typeof low !== "number" || typeof close !== "number" ||
+      !Number.isFinite(open) || !Number.isFinite(high) ||
+      !Number.isFinite(low) || !Number.isFinite(close)
+    ) {
+      continue;
+    }
+
+    candles.push({
+      time: times[i] * 1000,
+      open: roundToTick(open),
+      high: roundToTick(high),
+      low: roundToTick(low),
+      close: roundToTick(close),
+      volume: typeof quote.volume?.[i] === "number" ? (quote.volume[i] as number) : 0,
+    });
+  }
+
+  return candles.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * Free real Nasdaq futures bars from Yahoo.
+ *
+ * This is an undocumented endpoint, not a supported API. It can change or
+ * rate-limit without notice, quotes are typically delayed rather than
+ * real-time, and history is short. That is the trade for needing no key and no
+ * card — good enough to tune a scanner against real price behaviour, not good
+ * enough to run size against. Databento remains the path for that, and takes
+ * priority whenever a key is configured.
+ */
+export function createYahooSource(): MnqBarSource {
+  return {
+    id: "yahoo",
+    label: "Yahoo · Nasdaq futures",
+    isLive: true,
+    async fetchBars(request) {
+      const { interval, range } = yahooParams(request.intervalMs);
+      let lastError: unknown = null;
+
+      for (const symbol of YAHOO_SYMBOLS) {
+        try {
+          const response = await fetch(
+            `${YAHOO_BASE}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`,
+            {
+              // Yahoo returns 403 to requests without a browser-ish UA.
+              headers: { "user-agent": "Mozilla/5.0", accept: "application/json" },
+              cache: "no-store",
+            },
+          );
+          if (!response.ok) {
+            lastError = new Error(`Yahoo responded ${response.status} for ${symbol}`);
+            continue;
+          }
+
+          const candles = parseYahooChart(await response.json()).slice(-request.limit);
+          // A handful of bars is a malformed response, not a quiet session.
+          if (candles.length < 32) {
+            lastError = new Error(`Yahoo returned ${candles.length} usable bars for ${symbol}`);
+            continue;
+          }
+
+          return {
+            symbol: MNQ.symbol,
+            candles,
+            source: "yahoo",
+            isLive: true,
+            note:
+              symbol === "MNQ=F"
+                ? "Micro E-mini Nasdaq futures via Yahoo. Delayed, not real-time."
+                : "E-mini Nasdaq (NQ) futures via Yahoo — same index, same points as MNQ; only the $2/pt multiplier differs. Delayed, not real-time.",
+          };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw lastError instanceof Error ? lastError : new Error("Yahoo unavailable");
+    },
+  };
+}
+
 /**
  * Pick a source from the environment.
  *
- * Server-side only — DATABENTO_API_KEY is deliberately not NEXT_PUBLIC, so the
- * key never reaches the browser and the bars route is the only thing that can
- * spend the user's Databento quota.
+ * Databento when a key is configured, otherwise free real bars from Yahoo,
+ * otherwise the simulator. Server-side only — DATABENTO_API_KEY is deliberately
+ * not NEXT_PUBLIC, so the key never reaches the browser and the bars route is
+ * the only thing that can spend the user's Databento quota.
+ *
+ * MNQ_FORCE_SOURCE pins one source for debugging, so a Yahoo outage can be told
+ * apart from a parsing bug without editing code.
  */
 export function resolveMnqSource(): MnqBarSource {
+  const forced = process.env.MNQ_FORCE_SOURCE;
+  if (forced === "simulated") return createSimulatedMnqSource();
+  if (forced === "yahoo") return createYahooSource();
+
   const key = process.env.DATABENTO_API_KEY;
-  return key ? createDatabentoSource(key) : createSimulatedMnqSource();
+  if (key) return createDatabentoSource(key);
+  return createYahooSource();
 }
 
 /** Group bars into ET trading days, for day-scoped stats. */
