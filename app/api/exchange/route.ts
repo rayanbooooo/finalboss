@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { BYBIT_HOSTS, ALLOWED_PATH_PREFIXES } from "@/lib/exchange/bybit";
+import { buildUpstreamHeaders } from "@/lib/exchange/broker";
 
 export const runtime = "nodejs";
 /** Never cached, never prerendered: every request is user-specific. */
@@ -24,14 +25,15 @@ const MAX_BODY_BYTES = 8 * 1024;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 /** Only these headers reach the exchange. Anything else the client sets is
  * dropped rather than forwarded. */
-const FORWARDABLE_HEADERS = new Set([
-  "x-bapi-api-key",
-  "x-bapi-timestamp",
-  "x-bapi-recv-window",
-  "x-bapi-sign",
-  "x-bapi-sign-type",
-  "content-type",
-]);
+/**
+ * Our Bybit API Broker ID, once the account has one.
+ *
+ * Server-side and deliberately NOT NEXT_PUBLIC: this identifies us to Bybit,
+ * not the user, and nothing in the browser should be able to read or set it.
+ * Absent until Bybit's Broker Management approves the account, and absent means
+ * the relay behaves exactly as it did before this existed.
+ */
+const BROKER_ID = process.env.BYBIT_BROKER_ID?.trim() || null;
 
 const RATE_LIMIT_WINDOW_MS = 10_000;
 const RATE_LIMIT_MAX = 60;
@@ -162,13 +164,10 @@ export async function POST(request: Request) {
   const query = typeof payload.query === "string" ? payload.query : "";
   const target = `https://${host}${path}${query ? `?${query}` : ""}`;
 
-  const headers = new Headers();
-  const provided = (payload.headers ?? {}) as Record<string, unknown>;
-  Object.entries(provided).forEach(([name, value]) => {
-    if (typeof value === "string" && FORWARDABLE_HEADERS.has(name.toLowerCase())) {
-      headers.set(name, value);
-    }
-  });
+  const headers = buildUpstreamHeaders(
+    (payload.headers ?? {}) as Record<string, unknown>,
+    BROKER_ID
+  );
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
