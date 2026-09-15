@@ -431,6 +431,33 @@ export function parseYahooChart(payload: unknown): Candle[] {
  * enough to run size against. Databento remains the path for that, and takes
  * priority whenever a key is configured.
  */
+/**
+ * Drop the in-progress bar Yahoo appends to every response.
+ *
+ * Yahoo tacks the current quote onto the series as an extra entry: its
+ * timestamp is the moment of the request rather than an interval boundary, and
+ * open/high/low/close are all the last price, so it has zero range and zero
+ * volume.
+ *
+ * The scanner treats every bar it receives as closed. A zero-range bar pulls
+ * ATR down — which loosens the displacement threshold and the minimum stop on
+ * the very bar a live setup would fire — and it cannot be a real swing or gap
+ * boundary. It has to go, and alignment to the interval is what identifies it:
+ * genuine bars land on boundaries, the forming one does not.
+ *
+ * Only trailing bars are examined. An unaligned bar in the middle of the series
+ * is a data oddity worth keeping rather than silently discarding.
+ */
+export function dropFormingBar(candles: Candle[], intervalMs: number): Candle[] {
+  if (intervalMs <= 0) return candles;
+
+  let end = candles.length;
+  while (end > 0 && candles[end - 1].time % intervalMs !== 0) {
+    end -= 1;
+  }
+  return end === candles.length ? candles : candles.slice(0, end);
+}
+
 export function createYahooSource(): MnqBarSource {
   return {
     id: "yahoo",
@@ -455,7 +482,10 @@ export function createYahooSource(): MnqBarSource {
             continue;
           }
 
-          const candles = parseYahooChart(await response.json()).slice(-request.limit);
+          const candles = dropFormingBar(
+            parseYahooChart(await response.json()),
+            request.intervalMs,
+          ).slice(-request.limit);
           // A handful of bars is a malformed response, not a quiet session.
           if (candles.length < 32) {
             lastError = new Error(`Yahoo returned ${candles.length} usable bars for ${symbol}`);

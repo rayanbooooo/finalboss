@@ -13,7 +13,7 @@ import {
   riskBudgetUsd,
   type PropRules,
 } from "@/lib/mnq/propRules";
-import { generateMnqCandles, parseYahooChart, parseDatabentoJsonl } from "@/lib/mnq/feed";
+import { dropFormingBar, generateMnqCandles, parseYahooChart, parseDatabentoJsonl } from "@/lib/mnq/feed";
 import { DEFAULT_SCAN_OPTIONS, scanSetups, summarise } from "@/lib/mnq/setups";
 import type { Candle } from "@/types/market";
 
@@ -426,5 +426,46 @@ describe("real-data parsers", () => {
       open: "1000000000", high: "1000000000", low: "1000000000", close: "1000000000", volume: "1",
     });
     expect(parseDatabentoJsonl(`{ not json\n${good}\n`)).toHaveLength(1);
+  });
+});
+
+
+describe("forming-bar filter", () => {
+  const bar = (time: number, price: number): Candle => ({
+    time, open: price, high: price, low: price, close: price, volume: 1,
+  });
+
+  it("drops the unaligned in-progress bar Yahoo appends", () => {
+    // Observed live: aligned minute bars, then a zero-range quote at :43s.
+    const candles = [
+      bar(1_789_476_240_000, 29_415),
+      bar(1_789_476_300_000, 29_420.75),
+      bar(1_789_476_360_000, 29_426.75),
+      bar(1_789_476_403_000, 29_425.25),
+    ];
+    const kept = dropFormingBar(candles, 60_000);
+    expect(kept).toHaveLength(3);
+    expect(kept.at(-1)!.time).toBe(1_789_476_360_000);
+  });
+
+  it("leaves a fully aligned series untouched", () => {
+    const candles = [bar(1_789_476_300_000, 1), bar(1_789_476_360_000, 2)];
+    expect(dropFormingBar(candles, 60_000)).toHaveLength(2);
+  });
+
+  it("keeps an unaligned bar in the middle of the series", () => {
+    // Mid-series oddities are data worth seeing, not artefacts to hide.
+    const candles = [
+      bar(1_789_476_300_000, 1),
+      bar(1_789_476_333_000, 2),
+      bar(1_789_476_360_000, 3),
+    ];
+    expect(dropFormingBar(candles, 60_000)).toHaveLength(3);
+  });
+
+  it("aligns against the requested interval, not just minutes", () => {
+    const candles = [bar(1_789_476_000_000, 1), bar(1_789_476_060_000, 2)];
+    // 1789476060000 is a minute boundary but not a 5-minute one.
+    expect(dropFormingBar(candles, 300_000)).toHaveLength(1);
   });
 });
