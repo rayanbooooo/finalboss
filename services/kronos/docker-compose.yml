@@ -1,0 +1,27 @@
+# Local sidecar. `docker compose up` then point the app at http://localhost:8000.
+#
+# Defaults here are CPU-shaped on purpose: Kronos-mini (4.1M params) with a
+# short horizon and few sampled paths. Kronos-small at 16 paths on CPU takes
+# minutes per request, which is not a forecast, it is a timeout.
+services:
+  kronos:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      KRONOS_MODEL: NeoQuasar/Kronos-mini
+      KRONOS_TOKENIZER: NeoQuasar/Kronos-Tokenizer-2k
+      KRONOS_MAX_CONTEXT: "2048"
+      KRONOS_SAMPLES: "4"
+      KRONOS_DEVICE: cpu
+    volumes:
+      # Weights are downloaded on first request; keep them across restarts.
+      - kronos-weights:/app/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  kronos-weights:

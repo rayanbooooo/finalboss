@@ -1,0 +1,33 @@
+# Render blueprint. Deploy with: render blueprint launch (or via the dashboard).
+#
+# `starter` is CPU-only, so this pins Kronos-mini and few sampled paths. For
+# Kronos-small or -base, move to a GPU instance and raise KRONOS_SAMPLES.
+services:
+  - type: web
+    name: kronos-sidecar
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: KRONOS_MODEL
+        value: NeoQuasar/Kronos-mini
+      - key: KRONOS_TOKENIZER
+        value: NeoQuasar/Kronos-Tokenizer-2k
+      - key: KRONOS_MAX_CONTEXT
+        value: "2048"
+      - key: KRONOS_SAMPLES
+        value: "4"
+      - key: KRONOS_DEVICE
+        value: cpu
+      - key: KRONOS_SERVICE_TOKEN
+        # Set this in the dashboard, then set the same value as
+        # KRONOS_SERVICE_TOKEN in the Vercel project. A sidecar on a public URL
+        # with no token is an open inference endpoint on your bill.
+        sync: false
+    disk:
+      name: kronos-weights
+      mountPath: /app/.cache/huggingface
+      sizeGB: 5

@@ -31,6 +31,50 @@ distribution — the useful part of a generative model. So the service samples
 banded: 0.45–0.55 counts as no information. A foundation model that is 52%
 confident on noisy intraday futures is not confident.
 
+## Turning it on (what the OFFLINE panel is asking for)
+
+The panel reads `available: false` because `KRONOS_SERVICE_URL` is unset. Three
+steps, and only the second one costs anything:
+
+**1. Deploy this directory somewhere that runs Python.** It cannot go on Vercel
+alongside the app — Vercel's Node runtime cannot host a PyTorch model. Pick one:
+
+```bash
+docker compose up                       # local, simplest
+fly launch --no-deploy && fly deploy    # fly.toml included
+render blueprint launch                 # render.yaml included
+```
+
+**2. Check it is alive**, and expect the first request to be slow — weights
+download on first use, not at boot:
+
+```bash
+curl https://<your-sidecar>/health
+# {"status":"ok","model":"NeoQuasar/Kronos-mini","loaded":false}
+```
+
+**3. Set the variable in Vercel** (Project → Settings → Environment Variables),
+then redeploy so it takes effect:
+
+```
+KRONOS_SERVICE_URL   = https://<your-sidecar>
+KRONOS_SERVICE_TOKEN = <the same secret set on the sidecar>
+```
+
+Set the token. A sidecar on a public URL with no token is an open inference
+endpoint running on your bill.
+
+### CPU is the real constraint
+
+The bundled configs pin **Kronos-mini** (4.1M params, 2048 context) with four
+sampled paths, because that is what survives a CPU box. Kronos-small at the
+default 16 paths takes minutes per request on CPU — that is not a forecast,
+it is a timeout. Raise `KRONOS_SAMPLES` and move up to `-small` or `-base` only
+on a GPU instance.
+
+Note the tokenizer must match the model: `Kronos-mini` pairs with
+`Kronos-Tokenizer-2k`, `-small` and `-base` with `Kronos-Tokenizer-base`.
+
 ## Run it
 
 ```bash

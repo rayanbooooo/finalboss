@@ -1,0 +1,44 @@
+# Fly.io. Deploy with: fly launch --no-deploy && fly deploy
+#
+# Weights are downloaded on first request, so the volume matters: without it
+# every cold start re-downloads the model.
+app = "kronos-sidecar"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  KRONOS_MODEL = "NeoQuasar/Kronos-mini"
+  KRONOS_TOKENIZER = "NeoQuasar/Kronos-Tokenizer-2k"
+  KRONOS_MAX_CONTEXT = "2048"
+  KRONOS_SAMPLES = "4"
+  KRONOS_DEVICE = "cpu"
+  HF_HOME = "/data/huggingface"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Scale to zero between requests. Forecasts are refetched once per bar at
+  # most, so paying for an idle machine makes no sense — at the cost of a slow
+  # first request after idle.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  # Kronos-mini is small, but torch itself wants headroom.
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 2
+
+[[mounts]]
+  source = "kronos_weights"
+  destination = "/data"
