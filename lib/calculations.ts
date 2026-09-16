@@ -105,6 +105,23 @@ export const DEMO_LEVERAGE_BOUNDS: LeverageBounds = {
   max: MAX_LEVERAGE,
 };
 
+/**
+ * What a connected account may use before the venue's own rules have arrived.
+ *
+ * `useInstrument` returns null while the fetch is in flight and after a failed
+ * one, and the obvious fallback - the demo bounds - is the wrong answer in the
+ * worst way: it offers a live trader 500-1000x, which exists at no venue, so
+ * the first order of the session is rejected by Bybit after they have already
+ * chosen a size. The demo range must never be reachable with real money.
+ *
+ * 5x rather than something more generous because this bound is a guess about a
+ * symbol whose rules are not known yet, and it is only ever in force for the
+ * moment before they arrive. Every Bybit USDT perpetual permits at least this,
+ * so it cannot itself be the cause of a rejection, and the range widens to the
+ * symbol's real maximum the instant the instrument loads.
+ */
+export const LIVE_FALLBACK_LEVERAGE_BOUNDS: LeverageBounds = { min: 1, max: 5 };
+
 /** Existing profiles predate the 500x floor, and a profile saved in demo mode
  * carries a leverage no venue will accept, so a stored default is always pulled
  * into whatever range currently applies rather than trusted. */

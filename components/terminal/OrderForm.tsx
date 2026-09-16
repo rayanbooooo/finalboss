@@ -19,6 +19,7 @@ import {
   clampLeverage,
   liquidationDistancePercent,
   DEMO_LEVERAGE_BOUNDS,
+  LIVE_FALLBACK_LEVERAGE_BOUNDS,
   MIN_LEVERAGE,
   type LeverageBounds,
 } from "@/lib/calculations";
@@ -54,10 +55,17 @@ export function OrderForm() {
   // Demo's 500-1000x exists at no real venue, so a connected account takes its
   // range from the instrument. Sending anything outside it gets the order
   // rejected rather than clamped.
-  const bounds: LeverageBounds =
-    live.active && instrument
+  //
+  // The three cases are deliberately distinct. A live account whose instrument
+  // has not loaded yet must NOT fall back to the demo range: that would offer
+  // 500-1000x with real money and have Bybit reject the order after the size
+  // was already chosen. It falls back to a conservative live bound instead,
+  // which widens the moment the venue's real rules arrive.
+  const bounds: LeverageBounds = !live.active
+    ? DEMO_LEVERAGE_BOUNDS
+    : instrument
       ? { min: instrument.minLeverage, max: instrument.maxLeverage }
-      : DEMO_LEVERAGE_BOUNDS;
+      : LIVE_FALLBACK_LEVERAGE_BOUNDS;
 
   // Switching modes changes the range under a leverage that was valid a moment
   // ago - 750x is fine in demo and impossible on Bybit - so pull it back into

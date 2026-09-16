@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEMO_LEVERAGE_BOUNDS,
+  LIVE_FALLBACK_LEVERAGE_BOUNDS,
   MAX_LEVERAGE,
   MIN_LEVERAGE,
   calcLiquidationPrice,
@@ -183,5 +184,33 @@ describe("calcSma", () => {
 
   it("returns one entry per candle", () => {
     expect(calcSma(candles([1, 2, 3]), 20)).toEqual([null, null, null]);
+  });
+});
+
+describe("LIVE_FALLBACK_LEVERAGE_BOUNDS", () => {
+  it("never overlaps the demo range", () => {
+    // The whole point: a live account waiting on its instrument must not be
+    // offered a leverage that exists only in demo.
+    expect(LIVE_FALLBACK_LEVERAGE_BOUNDS.max).toBeLessThan(DEMO_LEVERAGE_BOUNDS.min);
+  });
+
+  it("stays inside what every venue permits", () => {
+    expect(LIVE_FALLBACK_LEVERAGE_BOUNDS.min).toBeGreaterThanOrEqual(1);
+    expect(LIVE_FALLBACK_LEVERAGE_BOUNDS.max).toBeLessThanOrEqual(5);
+  });
+
+  it("pulls a demo leverage down into live range", () => {
+    // 750x is a normal demo setting; carried into a live session it has to
+    // land somewhere the exchange will accept.
+    expect(clampLeverage(750, LIVE_FALLBACK_LEVERAGE_BOUNDS)).toBe(
+      LIVE_FALLBACK_LEVERAGE_BOUNDS.max
+    );
+  });
+
+  it("keeps liquidation between entry and total loss at live leverage", () => {
+    const entry = 77200;
+    const liq = calcLiquidationPrice(entry, LIVE_FALLBACK_LEVERAGE_BOUNDS.max, "long");
+    expect(liq).toBeLessThan(entry);
+    expect(liq).toBeGreaterThan(entry * (1 - 1 / LIVE_FALLBACK_LEVERAGE_BOUNDS.max));
   });
 });
