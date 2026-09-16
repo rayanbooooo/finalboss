@@ -14,7 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { BYBIT_HOSTS, ALLOWED_PATH_PREFIXES } from "@/lib/exchange/bybit";
+import { parseVenue, resolveUpstream, takesBrokerHeader } from "@/lib/exchange/routing";
 import { buildUpstreamHeaders } from "@/lib/exchange/broker";
 
 export const runtime = "nodejs";
@@ -109,6 +109,9 @@ async function resolveUser(request: Request): Promise<string | null> {
 }
 
 interface RelayBody {
+  /** Which venue to reach. Absent means Bybit, so callers written before a
+   *  second venue existed keep working unchanged. */
+  venue?: unknown;
   testnet?: unknown;
   method?: unknown;
   path?: unknown;
@@ -151,22 +154,27 @@ export async function POST(request: Request) {
   const method = payload.method === "POST" ? "POST" : payload.method === "GET" ? "GET" : null;
   if (!method) return bad("Unsupported method.");
 
+  // Absent means Bybit; an unrecognised name is refused rather than defaulted,
+  // so a typo can never silently send a signed request to the wrong venue.
+  const venue = payload.venue === undefined ? "bybit" : parseVenue(payload.venue);
+  if (!venue) return bad("Unknown venue.");
+
   const path = typeof payload.path === "string" ? payload.path : "";
-  // Reject traversal outright rather than trying to normalise it: every
-  // legitimate path is a literal from a short allowlist.
-  if (!ALLOWED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)) || path.includes("..")) {
-    return bad("That endpoint is not allowed.", 403);
-  }
-
-  // The host is chosen here, from a boolean - never taken from the caller, so
-  // the relay can't be pointed at an arbitrary server.
-  const host = payload.testnet === true ? BYBIT_HOSTS.testnet : BYBIT_HOSTS.mainnet;
   const query = typeof payload.query === "string" ? payload.query : "";
-  const target = `https://${host}${path}${query ? `?${query}` : ""}`;
 
+  // The caller says what it wants; the table says where it goes. Nothing the
+  // caller sends is concatenated into a hostname, so the relay cannot be aimed
+  // at an arbitrary server and used to launder requests through our IP.
+  const target = resolveUpstream(venue, payload.testnet === true, path, query);
+  if (!target) return bad("That endpoint is not allowed.", 403);
+
+  // Aster carries attribution inside the signed order parameters, which the
+  // relay cannot touch without invalidating a signature it has no key to
+  // recompute - so there is nothing to attach, and attaching an empty header
+  // would look like attribution while crediting nobody.
   const headers = buildUpstreamHeaders(
     (payload.headers ?? {}) as Record<string, unknown>,
-    BROKER_ID
+    takesBrokerHeader(venue) ? BROKER_ID : null
   );
 
   const controller = new AbortController();

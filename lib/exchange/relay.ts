@@ -90,3 +90,91 @@ export async function syncClock(testnet: boolean): Promise<number> {
   setClockOffset(offset);
   return offset;
 }
+
+/* ------------------------------------------------------------------------ *
+ * Aster
+ *
+ * A separate path rather than a flag on `send`, because the two venues agree
+ * on almost nothing about a response. Bybit answers 200 and hides failures in
+ * `retCode`; Aster uses the HTTP status and answers errors as `{code, msg}`,
+ * with a success body that may be a bare array. Folding both into one parser
+ * produced a function whose every branch was "if Bybit... else Aster", which is
+ * two functions wearing a coat.
+ * ------------------------------------------------------------------------ */
+
+/** Aster's error envelope. Present only on a non-2xx response. */
+interface AsterError {
+  code?: number;
+  msg?: string;
+}
+
+/**
+ * Aster's deposit gate.
+ *
+ * Since 1 September 2026 its authenticated V3 endpoints require the linked
+ * main wallet to have deposited at least once. It is worth naming because it
+ * is the first thing a new user hits, it says nothing about their API wallet
+ * being wrong, and the venue's own wording - "This function can only be used
+ * after deposit" - reads like a fault rather than a next step.
+ */
+export const ASTER_DEPOSIT_REQUIRED = -5050;
+
+export interface AsterRelayRequest {
+  /** Path only, e.g. "/fapi/v3/order". The host is chosen server-side. */
+  path: string;
+  method: "GET" | "POST";
+  /** The signed payload string with `signature` already appended. */
+  query: string;
+  testnet: boolean;
+}
+
+/**
+ * Sends a request the browser has already signed to Aster, through the relay.
+ *
+ * The signed payload rides in the query string for both GET and POST, which is
+ * what Aster's reference implementation does and therefore what its server is
+ * known to accept.
+ */
+export async function sendAster<T = unknown>(request: AsterRelayRequest): Promise<T> {
+  const response = await fetch(RELAY_PATH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
+    body: JSON.stringify({
+      venue: "aster",
+      testnet: request.testnet,
+      method: request.method,
+      path: request.path,
+      query: request.query,
+      body: "",
+      headers: {},
+    }),
+  });
+
+  const text = await response.text();
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new ExchangeError("The exchange returned an unreadable response.", undefined, response.status);
+  }
+
+  if (!response.ok) {
+    const error = payload as AsterError & { error?: string };
+    if (error.code === ASTER_DEPOSIT_REQUIRED) {
+      throw new ExchangeError(
+        "Aster requires a first deposit on your main wallet before it will " +
+          "open an account. Deposit once on Aster, then reconnect here.",
+        error.code,
+        response.status
+      );
+    }
+    throw new ExchangeError(
+      error.msg || error.error || "The exchange rejected the request.",
+      error.code,
+      response.status
+    );
+  }
+
+  return payload as T;
+}
