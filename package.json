@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "aster:probe": "tsx scripts/aster-probe.ts"
   },
   "dependencies": {
     "@coinbase/wallet-sdk": "^4.3.7",
@@ -35,6 +36,7 @@
     "eslint-config-next": "16.3.4",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"
   }
