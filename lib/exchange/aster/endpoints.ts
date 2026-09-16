@@ -8,10 +8,16 @@
 export type AsterNetwork = "mainnet" | "testnet";
 
 export interface AsterNetworkConfig {
-  /** Base host. Paths already carry the `/fapi/v3` prefix. */
+  /**
+   * Base host. Paths already carry the `/fapi/v3` prefix.
+   *
+   * Aster's own docs disagree with themselves here: the stated base endpoint
+   * is `fapi.asterdex.com` (twice), while the runnable Python examples use
+   * `fapi3.asterdex.com`. The stated endpoint wins - it is the normative line,
+   * the example host appears nowhere else, and the V1 docs use the same host,
+   * which suggests fapi3 is an author's scratch host rather than a V3 split.
+   */
   host: string;
-  /** Sent as the `asterChain` parameter on every signed request. */
-  asterChain: "Mainnet" | "Testnet";
   /** EIP-712 domain chainId for AGENT-signed requests (orders, queries). */
   chainId: number;
 }
@@ -19,12 +25,10 @@ export interface AsterNetworkConfig {
 export const ASTER_NETWORKS: Readonly<Record<AsterNetwork, AsterNetworkConfig>> = {
   mainnet: {
     host: "https://fapi.asterdex.com",
-    asterChain: "Mainnet",
     chainId: 1666,
   },
   testnet: {
     host: "https://fapi.asterdex-testnet.com",
-    asterChain: "Testnet",
     chainId: 714,
   },
 } as const;

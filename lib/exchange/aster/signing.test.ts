@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { concat, hashTypedData, keccak256, numberToHex, pad, stringToHex } from "viem";
 import {
   buildAgentRequest,
-  buildMainWalletRequest,
+  buildRegisterAgentRequest,
   encodeEntries,
   inferFieldType,
   nextNonce,
@@ -12,11 +12,25 @@ const USER = "0x014c85ffb0fF2F2972237AA950B452f92C69Ae1D";
 const SIGNER = "0xC98Fd64eBc39E28b92849d9cCef9495663439014";
 
 describe("encodeEntries", () => {
-  it("joins raw, without percent-encoding", () => {
-    // Aster signs the raw joined string. If this ever starts encoding, every
-    // signature silently stops verifying - hence an explicit test for a value
-    // URLSearchParams would mangle.
-    expect(encodeEntries([["a", "1"], ["b", "x y"]])).toBe("a=1&b=x y");
+  it("percent-encodes the way urlencode does", () => {
+    // Aster's reference signs `urllib.parse.urlencode(...)`, so a space is a
+    // plus and anything unsafe is escaped. This file previously asserted the
+    // opposite.
+    expect(encodeEntries([["a", "1"], ["b", "x y"]])).toBe("a=1&b=x+y");
+  });
+
+  it("leaves Python's safe characters alone", () => {
+    // quote_plus does not escape these; URLSearchParams escapes `~`, which is
+    // why this is hand-rolled.
+    expect(encodeEntries([["k", "a_b.c-d~e"]])).toBe("k=a_b.c-d~e");
+  });
+
+  it("does not disturb the values this terminal actually sends", () => {
+    // Symbols, decimals and 0x addresses encode to themselves, which is why
+    // the old raw join passed its tests while being wrong.
+    expect(encodeEntries([["symbol", "BTCUSDT"], ["quantity", "0.03"]])).toBe(
+      "symbol=BTCUSDT&quantity=0.03"
+    );
   });
 
   it("is empty for no entries", () => {
@@ -32,19 +46,45 @@ describe("buildAgentRequest", () => {
     quantity: "0.03",
   };
 
-  it("appends asterChain, user, signer and nonce in Aster's order", () => {
-    const request = buildAgentRequest(params, { user: USER, signer: SIGNER, nonce: 42 }, "mainnet");
+  it("appends nonce then signer, the order an order is documented to use", () => {
+    const request = buildAgentRequest(params, { signer: SIGNER, nonce: 42 }, "mainnet");
 
     expect(request.entries.map(([key]) => key)).toEqual([
       "symbol",
       "type",
       "side",
       "quantity",
-      "asterChain",
+      "nonce",
+      "signer",
+    ]);
+  });
+
+  it("puts user between nonce and signer when the endpoint needs it", () => {
+    const request = buildAgentRequest(
+      params,
+      { user: USER, signer: SIGNER, nonce: 42 },
+      "mainnet"
+    );
+
+    expect(request.entries.map(([key]) => key)).toEqual([
+      "symbol",
+      "type",
+      "side",
+      "quantity",
+      "nonce",
       "user",
       "signer",
-      "nonce",
     ]);
+  });
+
+  it("never sends asterChain", () => {
+    // It appears nowhere in Aster's documentation, and it was previously added
+    // to every signed string this module produced.
+    const withUser = buildAgentRequest(params, { user: USER, signer: SIGNER, nonce: 1 }, "mainnet");
+    const without = buildAgentRequest(params, { signer: SIGNER, nonce: 1 }, "testnet");
+
+    expect(withUser.payloadString).not.toContain("asterChain");
+    expect(without.payloadString).not.toContain("asterChain");
   });
 
   it("signs exactly the string it transmits", () => {
@@ -62,8 +102,9 @@ describe("buildAgentRequest", () => {
     expect(mainnet.typedData.primaryType).toBe("Message");
     expect(mainnet.typedData.domain.chainId).toBe(1666);
     expect(testnet.typedData.domain.chainId).toBe(714);
-    expect(mainnet.entries).toContainEqual(["asterChain", "Mainnet"]);
-    expect(testnet.entries).toContainEqual(["asterChain", "Testnet"]);
+    // The network shows up in the chainId alone. There is no parameter
+    // carrying it - the entries are identical across networks.
+    expect(mainnet.entries).toEqual(testnet.entries);
   });
 
   it("drops null and undefined parameters", () => {
@@ -107,83 +148,62 @@ describe("inferFieldType", () => {
   });
 });
 
-describe("buildMainWalletRequest", () => {
-  // Taken from Aster's own reference demo (demo/aster-code.py).
-  const approveBuilder = {
-    builder: USER,
-    maxFeeRate: "0.00001",
-    builderName: "finalboss",
+describe("buildRegisterAgentRequest", () => {
+  const base = {
+    user: USER,
+    nonce: 1_700_000_000_000_000,
+    agentName: "finalboss",
+    agentAddress: SIGNER,
+    expired: 1_800_000_000_000,
+    canSpotTrade: false,
+    canPerpTrade: true,
+    canWithdraw: false,
+    ipWhitelist: "",
   };
 
-  it("capitalises field names in the typed message, not on the wire", () => {
-    const request = buildMainWalletRequest(
-      approveBuilder,
-      { user: USER, nonce: 7 },
-      "mainnet",
-      "ApproveBuilder"
-    );
-
-    expect(request.typedData.types.ApproveBuilder.map((field) => field.name)).toEqual([
-      "Builder",
-      "MaxFeeRate",
-      "BuilderName",
-      "AsterChain",
-      "User",
-      "Nonce",
-    ]);
-    expect(request.entries.map(([key]) => key)).toEqual([
-      "builder",
-      "maxFeeRate",
-      "builderName",
-      "asterChain",
+  it("uses the documented field order", () => {
+    // Fixed by Aster's message template, not the caller's to vary: a different
+    // order is a different signed string and an invalid signature.
+    expect(buildRegisterAgentRequest(base).entries.map(([key]) => key)).toEqual([
       "user",
       "nonce",
+      "agentName",
+      "agentAddress",
+      "expired",
+      "signatureChainId",
+      "canSpotTrade",
+      "canPerpTrade",
+      "canWithdraw",
+      "ipWhitelist",
     ]);
   });
 
-  it("signs under chain 56 on both networks", () => {
-    // Not the network chain id. See SIGNATURE_CHAIN_ID in endpoints.ts.
-    const mainnet = buildMainWalletRequest(
-      approveBuilder,
-      { user: USER, nonce: 1 },
-      "mainnet",
-      "ApproveBuilder"
-    );
-    const testnet = buildMainWalletRequest(
-      approveBuilder,
-      { user: USER, nonce: 1 },
-      "testnet",
-      "ApproveBuilder"
-    );
+  it("uses the same flat Message type as an agent request", () => {
+    // The replaced builder derived a per-field type with capitalised names.
+    // Aster documents one type for everything it signs.
+    const request = buildRegisterAgentRequest(base);
 
-    expect(mainnet.typedData.domain.chainId).toBe(56);
-    expect(testnet.typedData.domain.chainId).toBe(56);
-    expect(mainnet.signatureChainId).toBe(56);
+    expect(request.typedData.primaryType).toBe("Message");
+    expect(request.typedData.types.Message).toEqual([{ name: "msg", type: "string" }]);
+    expect(request.typedData.message.msg).toBe(request.payloadString);
   });
 
-  it("keeps original value types in the message", () => {
-    const request = buildMainWalletRequest(
-      { agentAddress: SIGNER, expired: 1967945395040, canPerpTrade: true, canWithdraw: false },
-      { user: USER, nonce: 3 },
-      "mainnet",
-      "ApproveAgent"
-    );
+  it("signs under chain 56, not the network's 1666", () => {
+    const request = buildRegisterAgentRequest(base);
 
-    expect(request.typedData.message.CanWithdraw).toBe(false);
-    expect(request.typedData.message.Expired).toBe(1967945395040);
-
-    const types = Object.fromEntries(
-      request.typedData.types.ApproveAgent.map((field) => [field.name, field.type])
-    );
-    expect(types.CanWithdraw).toBe("bool");
-    expect(types.Expired).toBe("uint256");
-    expect(types.Nonce).toBe("uint256");
+    expect(request.signatureChainId).toBe(56);
+    expect(request.typedData.domain.chainId).toBe(56);
   });
 
-  it("uses the caller's primary type", () => {
-    const request = buildMainWalletRequest({}, { user: USER, nonce: 1 }, "mainnet", "DelBuilder");
-    expect(request.typedData.primaryType).toBe("DelBuilder");
-    expect(request.typedData.types.DelBuilder).toBeDefined();
+  it("serialises booleans as Aster expects", () => {
+    expect(buildRegisterAgentRequest(base).payloadString).toContain("canPerpTrade=true");
+    expect(buildRegisterAgentRequest(base).payloadString).toContain("canWithdraw=false");
+  });
+
+  it("keeps an empty ipWhitelist in the payload", () => {
+    // Empty is only legal because canWithdraw is false, but the field is still
+    // part of the documented message - dropping it changes what is signed.
+    expect(buildRegisterAgentRequest(base).entries.map(([key]) => key)).toContain("ipWhitelist");
   });
 });
 

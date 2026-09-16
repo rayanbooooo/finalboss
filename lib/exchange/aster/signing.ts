@@ -38,8 +38,17 @@ export type AsterParams = Record<string, AsterParamValue | null | undefined>;
 export type AsterEntry = readonly [string, string];
 
 export interface AsterAgentAuth {
-  /** The main wallet that owns the funds. */
-  user: string;
+  /**
+   * The main wallet that owns the funds.
+   *
+   * Optional, and that is Aster's rule rather than a convenience: its auth
+   * table gives `signer` for API-wallet authentication and `user` for
+   * master-account authentication, and its two worked examples differ to
+   * match - a plain order sends signer alone, a master-account read sends
+   * both. Sending `user` where it is not wanted changes the signed string and
+   * yields a signature error that names nothing.
+   */
+  user?: string;
   /** The delegated API wallet that signs. */
   signer: string;
   nonce: number;
@@ -108,15 +117,41 @@ function serialise(params: AsterParams): AsterEntry[] {
 }
 
 /**
- * Joins entries as `k=v&k=v`.
+ * Joins entries as `k=v&k=v`, percent-encoded.
  *
- * Deliberately NOT `URLSearchParams`: it percent-encodes, and Aster's reference
- * implementation signs the raw joined string. Signing an encoded string and
- * sending a raw one (or the reverse) fails with a signature error that gives no
- * hint which side is wrong.
+ * This matches `urllib.parse.urlencode`, which is what Aster's reference
+ * implementation signs. The comment that stood here claimed the opposite and
+ * joined raw. For the parameters this terminal actually sends - symbols,
+ * decimal quantities, 0x addresses, booleans - raw and encoded are
+ * byte-identical, so the mistake was invisible; it would have surfaced the
+ * first time a value contained a character needing an escape, as a signature
+ * error pointing nowhere.
+ *
+ * Hand-rolled rather than `URLSearchParams` because the two disagree on the
+ * safe set - notably `~`, which Python leaves alone and URLSearchParams
+ * escapes. The set below is Python's `quote_plus`, because Python is what
+ * Aster's reference was written in.
  */
+const QUOTE_PLUS_SAFE = /[A-Za-z0-9_.\-~]/;
+
+function quotePlus(value: string): string {
+  let out = "";
+  for (const char of value) {
+    if (QUOTE_PLUS_SAFE.test(char)) {
+      out += char;
+    } else if (char === " ") {
+      out += "+";
+    } else {
+      for (const byte of new TextEncoder().encode(char)) {
+        out += `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+      }
+    }
+  }
+  return out;
+}
+
 export function encodeEntries(entries: readonly AsterEntry[]): string {
-  return entries.map(([key, value]) => `${key}=${value}`).join("&");
+  return entries.map(([key, value]) => `${quotePlus(key)}=${quotePlus(value)}`).join("&");
 }
 
 export interface AgentRequest {
@@ -130,7 +165,8 @@ export interface AgentRequest {
  * Builds an agent-signed request: an order, or a read of your own account.
  *
  * Parameter order follows Aster's reference implementation exactly - the
- * caller's own parameters first, then `asterChain`, `user`, `signer`, `nonce`.
+ * caller's own parameters first, then `nonce`, then `user` where the endpoint
+ * requires master-account auth, then `signer`.
  */
 export function buildAgentRequest(
   params: AsterParams,
@@ -138,12 +174,19 @@ export function buildAgentRequest(
   network: AsterNetwork
 ): AgentRequest {
   const config = asterNetwork(network);
+  // `serialise` drops an absent `user`, so both documented shapes - order
+  // (signer alone) and master-account read (user and signer) - fall out of one
+  // expression with the order preserved.
+  //
+  // There is no `asterChain`. That parameter appears nowhere in any of Aster's
+  // documentation - not the V3 reference, the testnet reference, the V1 docs,
+  // the chain docs or the Chinese editions - yet it was being inserted into
+  // every signed string this module produced.
   const entries = serialise({
     ...params,
-    asterChain: config.asterChain,
+    nonce: auth.nonce,
     user: auth.user,
     signer: auth.signer,
-    nonce: auth.nonce,
   });
   const payloadString = encodeEntries(entries);
 
@@ -185,66 +228,78 @@ export function inferFieldType(value: AsterParamValue): "bool" | "uint256" | "st
   return "string";
 }
 
-/** Aster capitalises the first letter of every parameter name when building
- *  the message type, while the wire parameters stay lower-cased. */
-function capitalise(key: string): string {
-  return key.length === 0 ? key : `${key[0].toUpperCase()}${key.slice(1)}`;
-}
-
 export interface MainWalletRequest {
-  /** Body parameters, lower-cased keys, in send order. */
+  /** Body parameters, in send order. */
   entries: AsterEntry[];
+  /** Exactly what is signed, and what must be transmitted. */
+  payloadString: string;
   typedData: TypedData;
   /** Sent alongside the signature so Aster knows which chain to recover on. */
   signatureChainId: number;
 }
 
+export interface RegisterAgentParams {
+  /** The main wallet that owns the funds. */
+  user: string;
+  nonce: number;
+  agentName: string;
+  /** The delegated API wallet this authorises. */
+  agentAddress: string;
+  /** Milliseconds. Aster expires agent authority rather than leaving it open. */
+  expired: number;
+  canSpotTrade: boolean;
+  canPerpTrade: boolean;
+  canWithdraw: boolean;
+  /**
+   * Space-separated addresses or CIDR ranges. Required and non-empty whenever
+   * `canWithdraw` is true - which this terminal never sets, because a key that
+   * can move funds is the one thing it refuses to hold.
+   */
+  ipWhitelist: string;
+}
+
 /**
- * Builds a main-wallet-signed request: `approveAgent`, `approveBuilder`, and
- * the other authorisations only the fund-owning wallet may make.
+ * Builds `POST /fapi/v3/registerAndApproveAgent`.
  *
- * `primaryType` is the endpoint's own type name - "ApproveAgent",
- * "ApproveBuilder", "UpdateBuilder", "DelBuilder". It is not derivable from the
- * URL and a wrong one produces a signature that recovers to a different
- * address, so it is a required argument rather than something guessed here.
+ * This replaced a generic main-wallet builder that produced the wrong shape.
+ * That one derived an EIP-712 type from the parameters - a field per parameter,
+ * names capitalised, types inferred - which is not what Aster documents. Every
+ * signed request on Aster, agent and main wallet alike, uses the SAME flat
+ * `Message(string msg)` type; only the chainId and the field order change. A
+ * per-field type hashes to something entirely different and recovers to the
+ * wrong address, which surfaces as an authorisation failure rather than a
+ * signing one, and sends you looking in the wrong place.
+ *
+ * The field order below is fixed by Aster's documented message template and is
+ * NOT the caller's to vary, which is why this takes named parameters rather
+ * than a bag: with a bag, a caller reordering their object would silently
+ * produce an invalid signature.
+ *
+ * `domain.chainId` is `signatureChainId` (56 for EVM), never the network's
+ * 1666 - the docs call this out explicitly, and it is the same distinction
+ * `SIGNATURE_CHAIN_ID` exists to record.
  */
-export function buildMainWalletRequest(
-  params: AsterParams,
-  auth: AsterMainAuth,
-  network: AsterNetwork,
-  primaryType: string
+export function buildRegisterAgentRequest(
+  params: RegisterAgentParams
 ): MainWalletRequest {
-  const config = asterNetwork(network);
   const entries = serialise({
-    ...params,
-    asterChain: config.asterChain,
-    user: auth.user,
-    nonce: auth.nonce,
+    user: params.user,
+    nonce: params.nonce,
+    agentName: params.agentName,
+    agentAddress: params.agentAddress,
+    expired: params.expired,
+    signatureChainId: SIGNATURE_CHAIN_ID,
+    canSpotTrade: params.canSpotTrade,
+    canPerpTrade: params.canPerpTrade,
+    canWithdraw: params.canWithdraw,
+    ipWhitelist: params.ipWhitelist,
   });
 
-  // The typed message uses the ORIGINAL values, not the serialised strings -
-  // a bool has to hash as a bool. Rebuild from the same key order so the
-  // message and the wire parameters cannot describe different requests.
-  const source: AsterParams = {
-    ...params,
-    asterChain: config.asterChain,
-    user: auth.user,
-    nonce: auth.nonce,
-  };
-
-  const fields: { name: string; type: string }[] = [];
-  const message: Record<string, AsterParamValue> = {};
-
-  entries.forEach(([key]) => {
-    const value = source[key];
-    if (value === undefined || value === null) return;
-    const name = capitalise(key);
-    fields.push({ name, type: inferFieldType(value) });
-    message[name] = value;
-  });
+  const payloadString = encodeEntries(entries);
 
   return {
     entries,
+    payloadString,
     signatureChainId: SIGNATURE_CHAIN_ID,
     typedData: {
       domain: {
@@ -255,10 +310,10 @@ export function buildMainWalletRequest(
       },
       types: {
         EIP712Domain: EIP712_DOMAIN_FIELDS,
-        [primaryType]: fields,
+        Message: [{ name: "msg", type: "string" }],
       },
-      primaryType,
-      message,
+      primaryType: "Message",
+      message: { msg: payloadString },
     },
   };
 }
