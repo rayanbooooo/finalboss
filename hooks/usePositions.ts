@@ -9,6 +9,7 @@ import {
   calcPnl,
   calcPnlPercent,
   calcPositionSize,
+  fillPrice,
 } from "@/lib/calculations";
 import { getSupabase, positionToRow, rowToPosition, type PositionRow } from "@/lib/supabase";
 import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
@@ -290,13 +291,17 @@ export function usePositions(markets: Record<MarketId, MarketSnapshot>, userId: 
     setPositions((prev) =>
       prev.map((p) => {
         if (p.id !== id || p.status !== "open") return p;
-        const markPrice = marketsRef.current[p.marketId]?.price ?? p.entryPrice;
-        const pnl = calcPnl(p.entryPrice, markPrice, p.size, p.side);
+        const mid = marketsRef.current[p.marketId]?.price ?? p.entryPrice;
+        const btcPrice = marketsRef.current.BTC?.price ?? mid;
+        // Closing crosses the spread same as opening did - a long sells at the
+        // bid, a short buys at the ask - so the realized loss includes it.
+        const exitPrice = fillPrice(mid, btcPrice, p.side, "close");
+        const pnl = calcPnl(p.entryPrice, exitPrice, p.size, p.side);
         return {
           ...p,
           status: "closed",
           closedAt: Date.now(),
-          closePrice: markPrice,
+          closePrice: exitPrice,
           realizedPnl: pnl,
         };
       })

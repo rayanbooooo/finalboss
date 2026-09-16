@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  BTC_SPREAD_USD,
   DEMO_LEVERAGE_BOUNDS,
   MAX_LEVERAGE,
   MIN_LEVERAGE,
+  calcBidAsk,
   calcLiquidationPrice,
   calcPnl,
   calcPnlPercent,
   calcPositionSize,
   calcSma,
+  calcSpread,
   clampLeverage,
+  fillPrice,
   leverageFromSliderValue,
   liquidationDistancePercent,
   liquidationProgress,
   priceMovePercent,
   sliderValueFromLeverage,
+  spreadFraction,
 } from "@/lib/calculations";
 import type { Candle } from "@/types/market";
 
@@ -172,6 +177,57 @@ describe("liquidation progress", () => {
   it("survives a missing liquidation price", () => {
     expect(liquidationProgress(entry, 95, Number.NaN, "long")).toBe(0);
     expect(liquidationProgress(entry, Number.NaN, liq, "long")).toBe(0);
+  });
+});
+
+describe("spread", () => {
+  const BTC = 77_200;
+
+  it("is exactly $10 on BTC itself, by construction", () => {
+    expect(calcSpread(BTC, BTC)).toBeCloseTo(BTC_SPREAD_USD, 9);
+  });
+
+  it("scales other symbols proportionally, not by the same flat dollar amount", () => {
+    const eth = 2_500;
+    const spread = calcSpread(eth, BTC);
+    // Same fraction of price as BTC's $10/$77,200, not $10 flat.
+    expect(spread).toBeCloseTo((BTC_SPREAD_USD / BTC) * eth, 9);
+    expect(spread).toBeLessThan(BTC_SPREAD_USD);
+  });
+
+  it("is the same fraction of price on every symbol", () => {
+    for (const price of [BTC, 2_500, 100, 1.35, 0.083]) {
+      expect(calcSpread(price, BTC) / price).toBeCloseTo(spreadFraction(BTC), 12);
+    }
+  });
+
+  it("splits into a bid and ask straddling the mid", () => {
+    const { bid, ask, spread } = calcBidAsk(BTC, BTC);
+    expect(ask - bid).toBeCloseTo(spread, 9);
+    expect((bid + ask) / 2).toBeCloseTo(BTC, 9);
+    expect(spread).toBeCloseTo(BTC_SPREAD_USD, 9);
+  });
+
+  it("guards a zero or invalid anchor price", () => {
+    expect(spreadFraction(0)).toBe(0);
+    expect(spreadFraction(Number.NaN)).toBe(0);
+    expect(calcSpread(BTC, 0)).toBe(0);
+    expect(calcSpread(0, BTC)).toBe(0);
+  });
+
+  it("fills a long-open and short-close at the ask, a short-open and long-close at the bid", () => {
+    const { bid, ask } = calcBidAsk(BTC, BTC);
+    expect(fillPrice(BTC, BTC, "long", "open")).toBeCloseTo(ask, 9);
+    expect(fillPrice(BTC, BTC, "short", "close")).toBeCloseTo(ask, 9);
+    expect(fillPrice(BTC, BTC, "short", "open")).toBeCloseTo(bid, 9);
+    expect(fillPrice(BTC, BTC, "long", "close")).toBeCloseTo(bid, 9);
+  });
+
+  it("makes a round trip (open then immediately close) lose exactly the spread, at 1x", () => {
+    const entry = fillPrice(BTC, BTC, "long", "open");
+    const exit = fillPrice(BTC, BTC, "long", "close");
+    const pnl = calcPnl(entry, exit, 1, "long");
+    expect(pnl).toBeCloseTo(-BTC_SPREAD_USD, 6);
   });
 });
 

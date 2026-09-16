@@ -15,12 +15,16 @@ import {
 } from "lightweight-charts";
 import type { Candle } from "@/types/market";
 import type { PositionWithPnl } from "@/hooks/usePositions";
-import { calcSma } from "@/lib/calculations";
+import { calcBidAsk, calcSma } from "@/lib/calculations";
 import { formatCurrency } from "@/lib/format";
 
 interface TradingChartProps {
   candles: Candle[];
   currentPrice: number;
+  /** Anchors the spread shown on this chart - see BTC_SPREAD_USD. Defaults to
+   *  currentPrice, which makes BTC's own chart correct without a caller
+   *  having to pass its own price back in as the anchor. */
+  btcPrice?: number;
   positions?: PositionWithPnl[];
   interactive?: boolean;
   heightClassName?: string;
@@ -102,6 +106,7 @@ export function shouldReplaceSeries(
 export function TradingChart({
   candles,
   currentPrice,
+  btcPrice = currentPrice,
   positions = [],
   interactive = true,
   heightClassName = "h-[260px] sm:h-[380px]",
@@ -117,6 +122,8 @@ export function TradingChart({
   const prevFirstTimeRef = useRef<number | null>(null);
   const prevSeriesKeyRef = useRef<string | undefined>(undefined);
   const positionLinesRef = useRef<Map<string, IPriceLine[]>>(new Map());
+  const bidLineRef = useRef<IPriceLine | null>(null);
+  const askLineRef = useRef<IPriceLine | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return undefined;
@@ -191,6 +198,8 @@ export function TradingChart({
     prevFirstTimeRef.current = null;
     prevSeriesKeyRef.current = undefined;
     positionLinesRef.current = new Map();
+    bidLineRef.current = null;
+    askLineRef.current = null;
 
     return () => {
       chart.remove();
@@ -198,6 +207,8 @@ export function TradingChart({
       seriesRef.current = null;
       volumeSeriesRef.current = null;
       smaSeriesRef.current = null;
+      bidLineRef.current = null;
+      askLineRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chart is created once per mount; `interactive` is not expected to change at runtime
   }, []);
@@ -274,6 +285,45 @@ export function TradingChart({
       positionLinesRef.current.set(position.id, [entryLine, liqLine]);
     }
   }, [positions]);
+
+  /**
+   * The spread band: bid below the mid, ask above it, straddling
+   * `currentPrice` by `calcBidAsk`'s split of the spread. Updated in place
+   * with applyOptions rather than removed and recreated on every tick, which
+   * is what a price line is for.
+   */
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || currentPrice <= 0) return;
+
+    const { bid, ask } = calcBidAsk(currentPrice, btcPrice);
+
+    if (bidLineRef.current) {
+      bidLineRef.current.applyOptions({ price: bid });
+    } else {
+      bidLineRef.current = series.createPriceLine({
+        price: bid,
+        color: "rgba(52,211,153,0.55)",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: "Bid",
+      });
+    }
+
+    if (askLineRef.current) {
+      askLineRef.current.applyOptions({ price: ask });
+    } else {
+      askLineRef.current = series.createPriceLine({
+        price: ask,
+        color: "rgba(244,63,94,0.55)",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: "Ask",
+      });
+    }
+  }, [currentPrice, btcPrice]);
 
   return (
     <div className="relative min-h-0 flex-1">

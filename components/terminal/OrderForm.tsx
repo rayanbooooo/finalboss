@@ -14,9 +14,11 @@ import {
 } from "@/components/terminal/LiveOrderConfirm";
 import { Button } from "@/components/ui/Button";
 import {
+  calcBidAsk,
   calcLiquidationPrice,
   calcPositionSize,
   clampLeverage,
+  fillPrice,
   liquidationDistancePercent,
   DEMO_LEVERAGE_BOUNDS,
   MIN_LEVERAGE,
@@ -32,8 +34,9 @@ const EXECUTED_LABEL_MS = 1200;
 const BALANCE_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 export function OrderForm() {
-  const { market, activeMarketId, openPosition, availableBalance, accountMode, live } =
+  const { market, markets, activeMarketId, openPosition, availableBalance, accountMode, live } =
     useTerminal();
+  // The book's own top-of-book, shown as reference context above the form.
   const bestBid = market.orderbook.bids[0];
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
@@ -68,13 +71,28 @@ export function OrderForm() {
     setLeverage((current) => clampLeverage(current, bounds));
   }
 
+  // What demo mode actually fills at: BTC's real price anchors the spread
+  // fraction (see BTC_SPREAD_USD), applied to this market's own price. Live
+  // mode ignores this entirely - Bybit fills at its own real spread, via its
+  // own order book, not this one.
+  const btcPrice = markets.BTC?.price ?? market.price;
+  const demoSpread = useMemo(() => calcBidAsk(market.price, btcPrice).spread, [market.price, btcPrice]);
+  const demoEntryPrice = useMemo(
+    () => fillPrice(market.price, btcPrice, side, "open"),
+    [market.price, btcPrice, side]
+  );
+
+  // Liquidation and size are both anchored to the price the position will
+  // actually open at, not the mid - crossing the spread moves entry away from
+  // mid before leverage even applies, and at 1000x that is not a rounding
+  // error.
   const liquidationPrice = useMemo(
-    () => calcLiquidationPrice(market.price, leverage, side),
-    [market.price, leverage, side]
+    () => calcLiquidationPrice(demoEntryPrice, leverage, side),
+    [demoEntryPrice, leverage, side]
   );
   const size = useMemo(
-    () => calcPositionSize(margin, leverage, market.price),
-    [margin, leverage, market.price]
+    () => calcPositionSize(margin, leverage, demoEntryPrice),
+    [margin, leverage, demoEntryPrice]
   );
 
   const exceedsBalance = margin > availableBalance;
@@ -125,12 +143,12 @@ export function OrderForm() {
       side,
       leverage,
       margin,
-      entryPrice: market.price,
+      entryPrice: demoEntryPrice,
     });
     toast({
       variant: "success",
       title: "Order filled",
-      description: `${side === "long" ? "Long" : "Short"} ${market.symbol} at ${formatPrice(market.price)} with ${leverage}x on ${formatCurrency(margin)} margin.`,
+      description: `${side === "long" ? "Long" : "Short"} ${market.symbol} at ${formatPrice(demoEntryPrice)} with ${leverage}x on ${formatCurrency(margin)} margin.`,
     });
     setJustExecuted(true);
     setTimeout(() => setJustExecuted(false), EXECUTED_LABEL_MS);
@@ -286,7 +304,15 @@ export function OrderForm() {
 
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
-        <Row label="Entry Price" value={formatPrice(market.price)} />
+        {live.active ? (
+          <Row label="Entry Price" value={formatPrice(market.price)} />
+        ) : (
+          <Row
+            label={`Entry Price (${side === "long" ? "ask" : "bid"})`}
+            value={formatPrice(demoEntryPrice)}
+            sub={`${formatCurrency(demoSpread, priceDecimals(market.price))} spread crossed on entry`}
+          />
+        )}
         {live.active ? (
           // The demo engine's liquidation rule is not Bybit's, and this is the
           // single worst number to guess at. Bybit computes it from the whole

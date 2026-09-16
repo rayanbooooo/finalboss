@@ -183,3 +183,65 @@ export function liquidationProgress(
 function clampSlider(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
+
+/**
+ * The spread the model anchors on BTC, in dollars.
+ *
+ * Every other symbol scales proportionally from this rather than also
+ * carrying a flat $10 - a flat dollar spread would be a rounding error on
+ * BTC and half the price of DOGE. Expressing it as one dollar figure on one
+ * reference market and deriving a fraction from it is what lets every
+ * symbol quote a spread that is the same fraction of its own price, which is
+ * roughly how a real market maker's spread actually scales across
+ * instruments of very different unit price.
+ */
+export const BTC_SPREAD_USD = 10;
+
+/** The spread as a fraction of price, anchored to BTC_SPREAD_USD at the
+ *  current BTC price. Every symbol's dollar spread is this fraction of its
+ *  own price. */
+export function spreadFraction(btcPrice: number): number {
+  if (!Number.isFinite(btcPrice) || btcPrice <= 0) return 0;
+  return BTC_SPREAD_USD / btcPrice;
+}
+
+/** The dollar spread for a symbol trading at `price`, scaled from the BTC
+ *  anchor - e.g. at BTC $77,200 (spreadFraction ≈ 0.0001296), ETH at $2,500
+ *  carries about $0.32, not $10. */
+export function calcSpread(price: number, btcPrice: number): number {
+  if (!Number.isFinite(price) || price <= 0) return 0;
+  return price * spreadFraction(btcPrice);
+}
+
+export interface BidAsk {
+  bid: number;
+  ask: number;
+  spread: number;
+}
+
+/** Splits a mid price into a bid and ask straddling it, half the spread on
+ *  each side. */
+export function calcBidAsk(midPrice: number, btcPrice: number): BidAsk {
+  const spread = calcSpread(midPrice, btcPrice);
+  return { bid: midPrice - spread / 2, ask: midPrice + spread / 2, spread };
+}
+
+/**
+ * Where an order actually fills, in dollars: opening a long or closing a
+ * short buys, so it fills at the ask; opening a short or closing a long
+ * sells, so it fills at the bid. Crossing the spread this way, in both
+ * directions, is what makes it a real cost of the trade rather than a number
+ * shown next to the chart and ignored - and at 1000x it is a real share of
+ * the margin the moment the position opens, well before price has moved at
+ * all.
+ */
+export function fillPrice(
+  midPrice: number,
+  btcPrice: number,
+  side: OrderSide,
+  action: "open" | "close"
+): number {
+  const { bid, ask } = calcBidAsk(midPrice, btcPrice);
+  const buys = (side === "long" && action === "open") || (side === "short" && action === "close");
+  return buys ? ask : bid;
+}

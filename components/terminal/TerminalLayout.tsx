@@ -26,7 +26,11 @@ import { cn } from "@/lib/utils";
  * grid with a persistent orderbook on the left and trade tape on the right.
  */
 export function TerminalLayout() {
-  const { market, activeMarketId, openPositions } = useTerminal();
+  const { market, markets, activeMarketId, openPositions } = useTerminal();
+  // The spread every market's fill crosses is anchored to BTC's own price
+  // (see BTC_SPREAD_USD) - falls back to this market's own price so BTC's
+  // chart doesn't show zero spread before its own snapshot has loaded.
+  const btcPrice = markets.BTC?.price ?? market.price;
   const { requestSeries } = useGlobalMarketFeed();
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const [chartExpanded, setChartExpanded] = useState(false);
@@ -84,6 +88,7 @@ export function TerminalLayout() {
                 onToggleExpand={() => setChartExpanded(true)}
                 candles={displayCandles}
                 currentPrice={market.price}
+                btcPrice={btcPrice}
                 positions={openPositions}
                 seriesKey={seriesKey}
               />
@@ -104,6 +109,7 @@ export function TerminalLayout() {
                   onToggleExpand={() => setChartExpanded(false)}
                   candles={displayCandles}
                   currentPrice={market.price}
+                  btcPrice={btcPrice}
                   positions={openPositions}
                   seriesKey={seriesKey}
                 />
@@ -144,6 +150,7 @@ interface ChartPanelProps {
    * with no history rather than one still loading. */
   candles: Candle[] | undefined;
   currentPrice: number;
+  btcPrice: number;
   positions: PositionWithPnl[];
   seriesKey: string;
 }
@@ -155,6 +162,7 @@ function ChartPanel({
   onToggleExpand,
   candles,
   currentPrice,
+  btcPrice,
   positions,
   seriesKey,
 }: ChartPanelProps) {
@@ -190,6 +198,7 @@ function ChartPanel({
         <TradingChart
           candles={candles}
           currentPrice={currentPrice}
+          btcPrice={btcPrice}
           positions={positions}
           seriesKey={seriesKey}
           heightClassName={heightClassName}
