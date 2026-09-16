@@ -40,6 +40,17 @@ import { asterNetwork, type AsterNetwork } from "@/lib/exchange/aster/endpoints"
 import { leverageBracketCall } from "@/lib/exchange/aster/requests";
 import { SORT_KEYS_ASCII, nextNonce } from "@/lib/exchange/aster/signing";
 
+/**
+ * Aster's deposit gate. Since 1 September 2026 its authenticated V3 endpoints
+ * require the linked main wallet to have deposited at least once, so this code
+ * is proof the request authenticated - it is reached only after the signature
+ * has been read and the account identified.
+ */
+const DEPOSIT_REQUIRED = -5050;
+
+/** Codes that genuinely indicate a malformed or mis-signed request. */
+const SIGNATURE_ERRORS = new Set([-1021, -1022, -1099, -2014, -2015, -4056]);
+
 const SYMBOL = process.env.ASTER_SYMBOL ?? "BTCUSDT";
 const NETWORK = (process.env.ASTER_NETWORK ?? "mainnet") as AsterNetwork;
 
@@ -104,11 +115,44 @@ async function main(): Promise<void> {
   console.log("");
 
   if (!response.ok) {
+    // Not every rejection is a signing problem, and treating them alike is
+    // actively harmful: this block used to advise flipping SORT_KEYS_ASCII on
+    // any failure, which would have broken a correct implementation on the
+    // strength of an error that proved it was correct.
+    let code: number | undefined;
+    try {
+      code = (JSON.parse(text) as { code?: number }).code;
+    } catch {
+      // Not JSON; fall through to the generic advice below.
+    }
+
     console.log("--- read this ---------------------------------------------");
-    console.log("Signature-ish error? Try, one at a time, in this order:");
-    console.log("  1. flip SORT_KEYS_ASCII in lib/exchange/aster/signing.ts");
-    console.log("  2. add or remove ASTER_USER");
-    console.log("  3. check the clock - nonce must be within 10s of server time");
+
+    if (code === DEPOSIT_REQUIRED) {
+      console.log("The signature VERIFIED. Do not change any signing code.");
+      console.log("");
+      console.log("-5050 is Aster's deposit gate, not an auth failure: since");
+      console.log("1 September 2026 their authenticated V3 endpoints require the");
+      console.log("linked main wallet to have deposited at least once. Reaching");
+      console.log("this error means Aster read the signature, identified the");
+      console.log("account, and then applied a business rule.");
+      console.log("");
+      console.log("Next: deposit into the Aster account this wallet is linked to,");
+      console.log("then run this again. Public market data needs no deposit.");
+      return;
+    }
+
+    if (code !== undefined && SIGNATURE_ERRORS.has(code)) {
+      console.log("This one does look like signing. Try, one at a time:");
+      console.log("  1. flip SORT_KEYS_ASCII in lib/exchange/aster/signing.ts");
+      console.log("  2. add or remove ASTER_USER");
+      console.log("  3. check the clock - nonce must be within 10s of server time");
+      return;
+    }
+
+    console.log("Not a known signing error - read the venue's message above.");
+    console.log("Change signing code only if the message actually names the");
+    console.log("signature; a business rejection means signing already worked.");
     return;
   }
 
