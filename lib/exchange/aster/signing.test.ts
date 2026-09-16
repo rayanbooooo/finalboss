@@ -6,6 +6,7 @@ import {
   encodeEntries,
   inferFieldType,
   nextNonce,
+  SORT_KEYS_ASCII,
 } from "./signing";
 
 const USER = "0x014c85ffb0fF2F2972237AA950B452f92C69Ae1D";
@@ -272,5 +273,31 @@ describe("nextNonce", () => {
   it("is microsecond-scale", () => {
     const now = 1_700_000_000_000;
     expect(nextNonce(now)).toBeGreaterThanOrEqual(now * 1000);
+  });
+});
+
+describe("SORT_KEYS_ASCII", () => {
+  it("is false, matching Aster's runnable example rather than its prose", () => {
+    // Recorded as a test so that flipping it is a deliberate act with a visible
+    // consequence, not a silent change to every signature the app produces.
+    expect(SORT_KEYS_ASCII).toBe(false);
+  });
+
+  it("produces the example's own unsorted order while false", () => {
+    // symbol, type, side is what Aster's place_order dict contains, and it is
+    // not ASCII order - s, t, s.
+    const request = buildAgentRequest(
+      { symbol: "BTCUSDT", type: "MARKET", side: "BUY" },
+      { signer: SIGNER, nonce: 1 },
+      "mainnet"
+    );
+
+    expect(request.entries.map(([key]) => key)).toEqual([
+      "symbol",
+      "type",
+      "side",
+      "nonce",
+      "signer",
+    ]);
   });
 });

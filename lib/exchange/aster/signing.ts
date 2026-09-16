@@ -9,10 +9,10 @@
  *   message is the encoded parameter string. The signature rides in the query
  *   string.
  *
- * - **Main-wallet requests** (`approveAgent`, `approveBuilder`) are signed by
- *   the user's actual wallet using a type generated from the parameters
- *   themselves - a different primary type per endpoint, with field types
- *   inferred from the values. The signature rides in the body.
+ * - **Main-wallet requests** (`registerAndApproveAgent`) are signed by the
+ *   user's actual wallet. They use the SAME flat `Message(string msg)` type -
+ *   what differs is the chainId (56, the chain the wallet lives on, not the
+ *   network's) and a field order fixed by the endpoint rather than the caller.
  *
  * This module builds the payloads and the typed data. It never touches a
  * private key: agent signing is done with a key the browser holds, and
@@ -21,10 +21,13 @@
  * vectors.
  *
  * THE INVARIANT, and the one that bites: the string that is signed and the
- * string that is transmitted must be byte-identical. Aster's reference
- * implementation relies on insertion order, not sorted keys, so these builders
- * return the ordered entries alongside the signing string - callers transmit
- * from the same array they signed, and cannot drift apart.
+ * string that is transmitted must be byte-identical. So these builders return
+ * the ordered entries alongside the signing string - callers transmit from the
+ * same array they signed, and the two cannot drift apart.
+ *
+ * Whether that order is insertion or sorted is genuinely unsettled in Aster's
+ * own documentation; see `SORT_KEYS_ASCII` below, which is where that question
+ * is recorded and where it gets answered by the first live request.
  */
 
 import { SIGNATURE_CHAIN_ID, asterNetwork, type AsterNetwork } from "./endpoints";
@@ -105,6 +108,32 @@ export function nextNonce(now: number = Date.now()): number {
   return now * 1000 + nonceCounter;
 }
 
+/**
+ * Whether the signed parameters are sorted by key.
+ *
+ * ASTER'S OWN DOCUMENTATION DISAGREES WITH ITSELF HERE, and this constant
+ * exists so that the disagreement is visible and one line to settle rather than
+ * a day spent inside a signature error.
+ *
+ * "Aster API Overview.md" describes the V3 signing flow as "sort them by ASCII
+ * key order", and names "incorrect parameter sorting" as the most common
+ * migration failure. But the runnable Python example in the V3 reference builds
+ * its payload with `urllib.parse.urlencode(my_dict)` over a dict whose literal
+ * order is symbol, type, side, timeInForce, quantity, price - which is not
+ * sorted, by inspection.
+ *
+ * False, because executable code that someone ran beats prose that reads like
+ * it was written once and left: the same overview also lists `timestamp` as a
+ * V3 parameter and implies `user` is always required, and the example sends
+ * neither. Three claims, one source, all contradicted by the code.
+ *
+ * If the first live request comes back with a signature error and nothing else
+ * explains it, flip this to true before changing anything else. That is the
+ * single most likely cause, and the test below covers both behaviours so the
+ * flip cannot break anything silently.
+ */
+export const SORT_KEYS_ASCII = false;
+
 /** Drops null/undefined and stringifies the rest, matching Aster's reference
  *  serialisation (booleans become "true"/"false", numbers their decimal form). */
 function serialise(params: AsterParams): AsterEntry[] {
@@ -113,7 +142,9 @@ function serialise(params: AsterParams): AsterEntry[] {
     if (value === undefined || value === null) return;
     entries.push([key, String(value)]);
   });
-  return entries;
+  return SORT_KEYS_ASCII
+    ? [...entries].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    : entries;
 }
 
 /**
