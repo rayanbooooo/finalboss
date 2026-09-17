@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   sidebarCollapsed: "finalboss:sidebar-collapsed",
   privacyAck: "finalboss:privacy-ack",
   saveRunDismissed: "finalboss:save-run-dismissed",
+  asterAgent: "finalboss:aster-agent",
 } as const;
 
 /**
@@ -38,6 +39,9 @@ export const PER_USER_STORAGE_KEYS: readonly string[] = [
   STORAGE_KEYS.tourDone,
   STORAGE_KEYS.startTour,
   STORAGE_KEYS.pendingReferral,
+  // An approved agent authorises trading on one person's exchange account. It
+  // must never outlive their session on a shared browser, even encrypted.
+  STORAGE_KEYS.asterAgent,
 ];
 
 /**
