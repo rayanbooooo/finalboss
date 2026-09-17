@@ -32,6 +32,9 @@ export const ASTER_PATHS = {
   leverage: "/fapi/v3/leverage",
   leverageBracket: "/fapi/v3/leverageBracket",
   exchangeInfo: "/fapi/v3/exchangeInfo",
+  /** Registers the agent wallet and grants it permissions in one call. Aster
+   *  treats it as unauthenticated - the wallet signature IS the authority. */
+  registerAgent: "/fapi/v3/registerAndApproveAgent",
 } as const;
 
 export type AsterMethod = "GET" | "POST";

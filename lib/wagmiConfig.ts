@@ -1,9 +1,14 @@
 import { createConfig, http } from "wagmi";
-import { arbitrum, base, mainnet, optimism } from "wagmi/chains";
+import { arbitrum, base, bsc, mainnet, optimism } from "wagmi/chains";
 import { coinbaseWallet, injected } from "wagmi/connectors";
 
 export const wagmiConfig = createConfig({
-  chains: [mainnet, arbitrum, base, optimism],
+  // BNB Chain is here for one reason: Aster signs a main-wallet authorisation
+  // under chain 56, and MetaMask refuses `eth_signTypedData_v4` when the typed
+  // data's domain chainId does not match the chain the wallet is on. Without
+  // bsc in this list the approval cannot be signed at all, and the failure
+  // reads as a wallet error rather than a missing chain.
+  chains: [mainnet, arbitrum, base, optimism, bsc],
   connectors: [
     injected({ target: "metaMask" }),
     injected({ target: "phantom" }),
@@ -16,6 +21,7 @@ export const wagmiConfig = createConfig({
     [arbitrum.id]: http(),
     [base.id]: http(),
     [optimism.id]: http(),
+    [bsc.id]: http(),
   },
 });
 
