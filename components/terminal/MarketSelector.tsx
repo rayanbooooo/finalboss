@@ -94,10 +94,10 @@ export function MarketSelector() {
                       <span
                         className={cn(
                           "h-1.5 w-1.5 rounded-full",
-                          snapshot.isLive ? "bg-emerald-400" : "bg-violet-400"
+                          snapshot.isLive ? "bg-emerald-400" : "bg-amber-400"
                         )}
                       />
-                      {snapshot.isLive ? "Live" : "Simulated"}
+                      {snapshot.isLive ? "Live" : "No feed"}
                     </span>
                   </span>
                 </span>

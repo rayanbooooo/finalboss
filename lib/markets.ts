@@ -1,3 +1,4 @@
+import type { MarketSnapshot } from "@/types/market";
 import type { CryptoSymbol } from "@/components/ui/CryptoIcon";
 
 export type MarketId = "BTC" | "ETH" | "SOL" | "XRP" | "DOGE";
@@ -76,4 +77,35 @@ export function getMarketConfig(id: MarketId): MarketConfig {
   const found = MARKETS.find((m) => m.id === id);
   if (!found) throw new Error(`Unknown market id: ${id}`);
   return found;
+}
+
+/**
+ * A market with no data yet, or none available.
+ *
+ * This replaces a client-side simulator that used to fill the gap with a random
+ * walk. The simulator was labelled SIMULATED PRICES and it was honest as far as
+ * a label goes, but a plausible moving price on a real-money terminal is the
+ * kind of thing people act on, and a badge is thin protection against that. A
+ * blank panel cannot be traded on by mistake.
+ *
+ * Every figure is zero and `isLive` is false, so panels render their empty
+ * state. Nothing here is a price.
+ */
+export function pendingSnapshot(market: { symbol: string }): MarketSnapshot {
+  return {
+    symbol: market.symbol,
+    price: 0,
+    candles: [],
+    series: {},
+    orderbook: { bids: [], asks: [] },
+    trades: [],
+    change24hPct: 0,
+    high24h: 0,
+    low24h: 0,
+    volume24h: 0,
+    turnover24h: 0,
+    openInterestUsd: 0,
+    isLive: false,
+    isStreaming: false,
+  };
 }

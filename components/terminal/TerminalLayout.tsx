@@ -43,7 +43,7 @@ export function TerminalLayout() {
   // "BTC:60" before and after the feed goes live, decides it is the same
   // dataset, and patches only the last bar - splicing one real candle onto the
   // simulator's history and drawing a vertical spike that never happened.
-  const seriesKey = `${activeMarketId}:${timeframe.granularity}:${market.isLive ? "live" : "sim"}`;
+  const seriesKey = `${activeMarketId}:${timeframe.granularity}:${market.isLive ? "live" : "none"}`;
 
   useEffect(() => {
     if (!chartExpanded) return undefined;

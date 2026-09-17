@@ -36,17 +36,17 @@ export function MarketHeader() {
         >
           {formatPrice(market.price)}
         </span>
-        <Badge variant={market.isLive ? "emerald" : "violet"}>
+        <Badge variant={market.isLive ? "emerald" : "amber"}>
           <span
             className={cn(
               "h-1.5 w-1.5 animate-pulse-glow rounded-full",
-              market.isLive ? "bg-emerald-400" : "bg-violet-400"
+              market.isLive ? "bg-emerald-400" : "bg-amber-400"
             )}
           />
           {/* "LIVE" here is about the price feed, never about the money -
               hence the explicit wording, and the separately labelled account
               switch beside it. */}
-          {market.isLive ? "LIVE PRICES" : "SIMULATED PRICES"}
+          {market.isLive ? "LIVE PRICES" : "NO PRICE FEED"}
         </Badge>
       </div>
 

@@ -8,7 +8,6 @@ import type {
   OrderBookSnapshot,
   Trade,
 } from "@/types/market";
-import { useMarketSimulator } from "@/hooks/useMarketSimulator";
 import {
   connectMultiMarketFeed,
   fetchHistoricalCandles,
@@ -16,8 +15,9 @@ import {
   startTickerPolling,
   type TickerUpdate,
 } from "@/lib/liveMarketFeed";
-import { nextCandle } from "@/lib/marketSimulator";
 import { MARKETS, type MarketId } from "@/lib/markets";
+import { pendingSnapshot } from "@/lib/markets";
+import { nextCandle } from "@/lib/candles";
 import { BASE_GRANULARITY, granularityMs, type Granularity } from "@/lib/timeframes";
 
 const CONNECT_TIMEOUT_MS = 8000;
@@ -125,9 +125,10 @@ export interface MultiMarketFeed {
  * terminal places orders on, so the chart and the fill refer to the same
  * instrument. Bybit returns up to 1000 bars per request, so no timeframe needs
  * paging. Each market
- * also keeps its own client-side simulator (useMarketSimulator) running the
- * whole time as a hot fallback - cheap, and it means an unreachable feed
- * degrades that market gracefully instead of freezing it.
+ * A market with no data
+ * yet reports `isLive: false` and zeroes rather than a synthesised price: on a
+ * terminal where every order is real, an invented price is something a person
+ * can act on, and a SIMULATED badge is thin protection against that.
  */
 export function useMultiMarketFeed(): MultiMarketFeed {
   const [live, setLive] = useState<Record<MarketId, LiveState>>(() => {
@@ -166,19 +167,6 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         requestedRef.current.delete(key);
       });
   }, []);
-
-  // Once real history has landed for a market, its last real price anchors
-  // that market's simulator fallback even if the websocket never goes live.
-  const anchorPrice = (id: MarketId): number | undefined =>
-    live[id].hasHistory ? live[id].price : undefined;
-
-  const simulators: Record<MarketId, MarketSnapshot> = {
-    BTC: useMarketSimulator(MARKETS[0], anchorPrice("BTC")),
-    ETH: useMarketSimulator(MARKETS[1], anchorPrice("ETH")),
-    SOL: useMarketSimulator(MARKETS[2], anchorPrice("SOL")),
-    XRP: useMarketSimulator(MARKETS[3], anchorPrice("XRP")),
-    DOGE: useMarketSimulator(MARKETS[4], anchorPrice("DOGE")),
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -388,7 +376,9 @@ export function useMultiMarketFeed(): MultiMarketFeed {
         isStreaming: state.isStreaming,
       };
     } else {
-      markets[market.id] = simulators[market.id];
+      // No data yet, or none reachable. Panels show their empty state rather
+      // than a synthesised price that could be mistaken for the market.
+      markets[market.id] = pendingSnapshot(market);
     }
   });
 
