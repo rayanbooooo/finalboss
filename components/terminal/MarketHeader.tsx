@@ -5,7 +5,6 @@ import { useTerminal } from "@/contexts/TerminalContext";
 import { formatCompactNumber, formatPercent, formatPrice } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { Logo } from "@/components/ui/Logo";
-import { AccountModeSwitch } from "@/components/terminal/AccountModeSwitch";
 import { AccountControls } from "@/components/wallet/AccountControls";
 import { MarketSelector } from "@/components/terminal/MarketSelector";
 import { cn } from "@/lib/utils";
@@ -60,7 +59,6 @@ export function MarketHeader() {
         <span className="mt-2 hidden text-[11px] uppercase tracking-wider text-white/35 sm:block">
           Account
         </span>
-        <AccountModeSwitch />
         <div className="flex items-center gap-3 lg:hidden">
           <AccountControls size="md" />
         </div>

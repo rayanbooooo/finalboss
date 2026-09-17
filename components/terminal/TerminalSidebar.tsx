@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
   CandlestickChart,
   History,
   Home,
@@ -36,7 +34,7 @@ function scrollToPositions() {
  */
 export function TerminalSidebar() {
   const { isConnected } = useAccount();
-  const { positionsTab, setPositionsTab, fundingMode, openFunding } = useTerminal();
+  const { positionsTab, setPositionsTab } = useTerminal();
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
@@ -109,20 +107,10 @@ export function TerminalSidebar() {
           active={onTradeScreen && positionsTab === "history"}
           onClick={() => showPositions("history")}
         />
-        <SidebarItem
-          icon={ArrowDownToLine}
-          label="Deposit"
-          collapsed={collapsed}
-          active={fundingMode === "deposit"}
-          onClick={() => openFunding("deposit")}
-        />
-        <SidebarItem
-          icon={ArrowUpFromLine}
-          label="Withdraw"
-          collapsed={collapsed}
-          active={fundingMode === "withdraw"}
-          onClick={() => openFunding("withdraw")}
-        />
+        {/* Deposit and Withdraw used to live here and moved funds that were
+            never real. Funding happens at the exchange now, and the balances
+            panel links straight to it rather than putting a control here that
+            cannot do what its label says. */}
         <SidebarItem
           icon={LifeBuoy}
           label="Guide"

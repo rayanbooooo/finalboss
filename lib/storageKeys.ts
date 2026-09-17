@@ -3,39 +3,31 @@
  *
  * Collected here because sign-out has to know the full list. It used to clear
  * only the profile, so the next person to sign in on the same browser
- * inherited the previous account's positions, demo balance, venue mode,
- * pending referral code and completed-walkthrough flag - state that looks like
- * their own and, in the case of positions and balance, is someone else's
- * trading history.
+ * inherited the previous account's state as though it were their own.
+ *
+ * Four keys left with demo mode: simulated positions, simulated funding
+ * history, the demo/real switch, and a prompt that offered to save a demo run.
+ * None of them describe anything the app still has.
  */
 export const STORAGE_KEYS = {
   profile: "finalboss:profile",
-  accountMode: "finalboss:account-mode",
-  positions: "finalboss:positions",
-  funding: "finalboss:funding",
   tourDone: "finalboss:tour-done",
   startTour: "finalboss:start-tour",
   pendingReferral: "finalboss:pending-referral",
   sidebarCollapsed: "finalboss:sidebar-collapsed",
   privacyAck: "finalboss:privacy-ack",
-  saveRunDismissed: "finalboss:save-run-dismissed",
   asterAgent: "finalboss:aster-agent",
 } as const;
 
 /**
  * Keys that belong to whoever is signed in, and so must not outlive them.
  *
- * `sidebarCollapsed`, `privacyAck` and `saveRunDismissed` are deliberately
- * absent: they describe the browser rather than the account, and resetting a
- * collapsed sidebar or re-showing a dismissed notice on every sign-out would be
- * a bug of its own. `saveRunDismissed` in particular only ever applies to
- * someone who has no account, so clearing it per account would mean nothing.
+ * `sidebarCollapsed` and `privacyAck` are deliberately absent: they describe
+ * the browser rather than the account, and resetting a collapsed sidebar or
+ * re-showing a dismissed notice on every sign-out would be a bug of its own.
  */
 export const PER_USER_STORAGE_KEYS: readonly string[] = [
   STORAGE_KEYS.profile,
-  STORAGE_KEYS.accountMode,
-  STORAGE_KEYS.positions,
-  STORAGE_KEYS.funding,
   STORAGE_KEYS.tourDone,
   STORAGE_KEYS.startTour,
   STORAGE_KEYS.pendingReferral,

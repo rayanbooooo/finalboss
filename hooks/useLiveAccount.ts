@@ -5,9 +5,9 @@ import { useExchange } from "@/contexts/ExchangeContext";
 import { parsePositions, parseWalletBalance, requests } from "@/lib/exchange/bybit";
 import { send } from "@/lib/exchange/relay";
 import type { LiveBalance, LivePosition } from "@/lib/exchange/types";
-import type { PositionWithPnl } from "@/hooks/usePositions";
 import { marketIdFromBybitSymbol, MARKETS } from "@/lib/markets";
 import { calcPnlPercent } from "@/lib/calculations";
+import type { PositionWithPnl } from "@/types/trading";
 
 /**
  * A position's own fields only change when you trade, so 5s is plenty. The

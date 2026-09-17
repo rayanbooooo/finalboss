@@ -15,14 +15,15 @@ import { cn } from "@/lib/utils";
  * account in front of someone whose real account it isn't.
  */
 export function BalancesPanel() {
-  const { availableBalance, equity, lockedMargin, openFunding, accountMode, live } =
-    useTerminal();
+  const { availableBalance, equity, lockedMargin, live } = useTerminal();
   const unrealised = equity - availableBalance - lockedMargin;
 
-  const badge =
-    accountMode === "demo"
-      ? { label: "DEMO FUNDS", tone: "border-amber-500/30 bg-amber-500/10 text-amber-200" }
-      : { label: "REAL FUNDS", tone: "border-rose-500/40 bg-rose-500/15 text-rose-200" };
+  // One account, and it is the user's own money. The amber "DEMO FUNDS"
+  // alternative that stood beside this is gone along with the funds it named.
+  const badge = {
+    label: "REAL FUNDS",
+    tone: "border-rose-500/40 bg-rose-500/15 text-rose-200",
+  };
 
   const showFigures = !live.active || live.ready;
 
@@ -66,28 +67,20 @@ export function BalancesPanel() {
         </p>
       )}
 
-      {accountMode === "demo" ? (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <FundingButton icon={ArrowDownToLine} label="Deposit" onClick={() => openFunding("deposit")} />
-          <FundingButton icon={ArrowUpFromLine} label="Withdraw" onClick={() => openFunding("withdraw")} />
-        </div>
-      ) : (
-        // Funding a real account happens at the exchange. This site never
-        // takes a deposit, so it links out rather than pretending to.
-        //
-        // Deliberately not a referral link: whoever reaches this already has
-        // the account, so a code here would attribute nothing and only add
-        // noise to the URL.
-        <a
-          href={ACTIVE_VENUE.fundsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Manage funds on {ACTIVE_VENUE.name}
-        </a>
-      )}
+      {/* Funding a real account happens at the exchange. This site never takes
+          a deposit, so it links out rather than pretending to.
+
+          Deliberately not a referral link: whoever reaches this already has the
+          account, so a code here would attribute nothing and only add noise. */}
+      <a
+        href={ACTIVE_VENUE.fundsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        Manage funds on {ACTIVE_VENUE.name}
+      </a>
     </div>
   );
 }

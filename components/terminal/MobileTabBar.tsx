@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 export function MobileTabBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { positionsTab, setPositionsTab, openFunding } = useTerminal();
+  const { positionsTab, setPositionsTab } = useTerminal();
   const onTradeScreen = pathname === "/terminal";
 
   const showPositions = (tab: "open" | "history") => {
@@ -54,7 +54,6 @@ export function MobileTabBar() {
           active={onTradeScreen && positionsTab === "open"}
           onClick={() => showPositions("open")}
         />
-        <Tab icon={Wallet} label="Funds" onClick={() => openFunding("deposit")} />
         <Tab icon={LifeBuoy} label="Guide" onClick={() => {
           startGuidedTour();
           if (!onTradeScreen) router.push("/terminal");

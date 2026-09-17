@@ -14,9 +14,9 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle } from "@/types/market";
-import type { PositionWithPnl } from "@/hooks/usePositions";
 import { calcSma } from "@/lib/calculations";
 import { formatCurrency } from "@/lib/format";
+import type { PositionWithPnl } from "@/types/trading";
 
 interface TradingChartProps {
   candles: Candle[];

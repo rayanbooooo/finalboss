@@ -29,3 +29,18 @@ export interface ExecuteOrderParams {
   margin: number;
   entryPrice: number;
 }
+
+/**
+ * A position as the terminal's panels want it: the venue's record plus the
+ * marked-to-market figures they display.
+ *
+ * It lived in the demo positions hook, which is where the simulated account
+ * computed it. That hook is gone; the shape is not, because it is what the
+ * position table, the chart overlay and the layout all read. `useLiveAccount`
+ * derives it from what the exchange reports.
+ */
+export interface PositionWithPnl extends Position {
+  markPrice: number;
+  pnl: number;
+  pnlPercent: number;
+}

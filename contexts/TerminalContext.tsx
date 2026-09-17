@@ -1,41 +1,30 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useExchange } from "@/contexts/ExchangeContext";
-import { useToast } from "@/contexts/ToastContext";
 import { useLiveAccount } from "@/hooks/useLiveAccount";
-import { formatCurrency, formatPrice } from "@/lib/format";
-import { usePositions, type PositionWithPnl } from "@/hooks/usePositions";
-import { useFunding, type FundingTransaction } from "@/hooks/useFunding";
 import type { MarketSnapshot } from "@/types/market";
-import type { ExecuteOrderParams, Position } from "@/types/trading";
+import type { Position, PositionWithPnl } from "@/types/trading";
 import type { MarketId } from "@/lib/markets";
-import { STORAGE_KEYS } from "@/lib/storageKeys";
 
 export type PositionsTab = "open" | "history";
 
 /**
- * Which account the terminal is showing. Deliberately NOT called "live" in the
- * UI: MarketHeader already says LIVE about the price feed, and overloading
- * that word on the one distinction that decides whether real money moves would
- * be the worst possible place for ambiguity.
+ * The terminal's account state.
+ *
+ * There is one account: the user's own, at the exchange. This context used to
+ * carry two - a simulated one with invented funds and a real one - selected by
+ * an `accountMode` flag that every panel had to branch on. The simulated half
+ * is gone, and with it the whole class of bug where a screen showing one
+ * account could be mistaken for the other.
+ *
+ * What replaces the demo balance is honesty about not having one: when the
+ * venue's figures are unavailable the numbers are zero and `live` says why, so
+ * a panel renders that state rather than a plausible-looking number.
  */
-export type AccountMode = "demo" | "real";
-
-const ACCOUNT_MODE_KEY = STORAGE_KEYS.accountMode;
-
 export interface LiveAccountStatus {
-  /** In a venue-backed mode (testnet or real). */
+  /** An exchange account is connected. */
   active: boolean;
   /** Figures below are real and current. */
   ready: boolean;
@@ -55,118 +44,37 @@ interface TerminalContextValue {
   activeMarketId: MarketId;
   setActiveMarketId: (id: MarketId) => void;
   openPositions: PositionWithPnl[];
+  /**
+   * Closed positions.
+   *
+   * Always empty for now: the venue's own order history is not yet read back,
+   * and the alternative - keeping a local record of fills - would be a second
+   * source of truth about money that could disagree with the exchange. An
+   * empty history is wrong in a way the user can see; a divergent one is not.
+   */
   history: Position[];
-  openPosition: (params: ExecuteOrderParams) => Position;
-  closePosition: (id: string) => void;
   positionsTab: PositionsTab;
   setPositionsTab: (tab: PositionsTab) => void;
-  /** Demo funds only - no real money moves anywhere in this app. */
+  /** From the exchange. Zero when its figures are unavailable - see `live`. */
   availableBalance: number;
-  /** Available funds plus margin locked in open positions and their unrealised P&L. */
   equity: number;
   lockedMargin: number;
-  fundingHistory: FundingTransaction[];
-  deposit: (amount: number) => void;
-  withdraw: (amount: number) => void;
-  fundingMode: FundingMode;
-  openFunding: (mode: Exclude<FundingMode, null>) => void;
-  closeFunding: () => void;
-
-  accountMode: AccountMode;
-  /** Refuses a venue-backed mode when no exchange account is connected. */
-  setAccountMode: (mode: AccountMode) => void;
   live: LiveAccountStatus;
 }
-
-export type FundingMode = "deposit" | "withdraw" | null;
 
 const TerminalContext = createContext<TerminalContextValue | null>(null);
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
   const { markets, activeMarketId, setActiveMarketId, activeMarket } = useGlobalMarketFeed();
-  const { userId } = useOnboarding();
-  const { openPositions, history, open, close } = usePositions(markets, userId);
-  const { transactions, netFunding, deposit, withdraw } = useFunding(userId);
   const [positionsTab, setPositionsTab] = useState<PositionsTab>("open");
-  const [fundingMode, setFundingMode] = useState<FundingMode>(null);
-  const { toast } = useToast();
 
   const { isConnected, isUnlocked } = useExchange();
-  const [accountMode, setAccountModeState] = useState<AccountMode>("demo");
-  // Restored after mount rather than in the initialiser, so the server and
-  // client first render agree.
-  const [restoredMode, setRestoredMode] = useState(false);
-  useEffect(() => {
-    if (restoredMode) return undefined;
-    const raf = requestAnimationFrame(() => {
-      try {
-        const stored = window.localStorage.getItem(ACCOUNT_MODE_KEY);
-        // "testnet" is a value older builds wrote; it is no longer a mode, and
-        // silently promoting it to "real" would put someone on their own money
-        // because of a leftover string.
-        if (stored === "real") setAccountModeState(stored);
-      } catch {
-        // Storage blocked: demo is the safe default anyway.
-      }
-      setRestoredMode(true);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [restoredMode]);
-
-  // A stored venue mode is meaningless once the key is gone, and leaving it
-  // set would show an empty "live" account that looks like a real zero balance.
-  const effectiveMode: AccountMode = isConnected ? accountMode : "demo";
-  const liveActive = effectiveMode !== "demo";
-
-  const setAccountMode = useCallback(
-    (mode: AccountMode) => {
-      if (mode !== "demo" && !isConnected) return;
-      setAccountModeState(mode);
-      try {
-        window.localStorage.setItem(ACCOUNT_MODE_KEY, mode);
-      } catch {
-        // Not persisting only means it resets to demo next visit.
-      }
-    },
-    [isConnected]
-  );
-
-  const liveAccount = useLiveAccount(liveActive);
-
-  // A liquidation happens on its own, with no click behind it - without this
-  // a position could vanish and take the margin with it silently.
-  const announcedRef = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    // First pass just records what already existed (restored from storage or
-    // the database), so old liquidations don't announce themselves on load.
-    if (announcedRef.current === null) {
-      announcedRef.current = new Set(history.map((p) => p.id));
-      return;
-    }
-    history.forEach((position) => {
-      if (position.status !== "liquidated" || announcedRef.current!.has(position.id)) return;
-      announcedRef.current!.add(position.id);
-      toast({
-        variant: "error",
-        title: `${position.symbol} position liquidated`,
-        description: `Liquidated at ${formatPrice(position.liquidationPrice)}. Margin of ${formatCurrency(position.margin)} was lost.`,
-      });
-    });
-  }, [history, toast]);
-
-  // Derived rather than stored: funding in, minus what's locked as margin,
-  // plus whatever closed positions realised. A stored balance could drift
-  // out of step with the history that produced it; this can't.
-  const demoLockedMargin = openPositions.reduce((total, p) => total + p.margin, 0);
-  const realisedPnl = history.reduce((total, p) => total + (p.realizedPnl ?? 0), 0);
-  const demoUnrealisedPnl = openPositions.reduce((total, p) => total + p.pnl, 0);
-  const demoAvailable = netFunding + realisedPnl - demoLockedMargin;
-  const demoEquity = demoAvailable + demoLockedMargin + demoUnrealisedPnl;
+  const liveAccount = useLiveAccount(isConnected);
 
   const live: LiveAccountStatus = {
-    active: liveActive,
-    ready: liveActive && isUnlocked && liveAccount.fetchedAt !== null,
-    locked: liveActive && !isUnlocked,
+    active: isConnected,
+    ready: isConnected && isUnlocked && liveAccount.fetchedAt !== null,
+    locked: isConnected && !isUnlocked,
     loading: liveAccount.loading,
     stale: liveAccount.stale,
     error: liveAccount.error,
@@ -174,41 +82,24 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     refresh: liveAccount.refresh,
   };
 
-  // In a venue-backed mode the venue is the only source. When its figures
-  // aren't available the numbers go to zero and `live` says why - panels render
-  // that state instead of the numbers. They are never quietly replaced with
-  // demo values, which would put a screen that looks like a real account in
-  // front of someone whose real account it isn't.
-  const balance = live.active ? liveAccount.balance : null;
-  const availableBalance = live.active ? (balance?.availableBalance ?? 0) : demoAvailable;
-  const equity = live.active ? (balance?.totalEquity ?? 0) : demoEquity;
-  const livePositions = liveAccount.positions;
-  const lockedMargin = live.active
-    ? livePositions.reduce((total, p) => total + p.margin, 0)
-    : demoLockedMargin;
+  // The venue is the only source. When its figures are not available these go
+  // to zero and `live` explains why - they are never quietly replaced with
+  // something that looks like a working account.
+  const balance = liveAccount.balance;
+  const positions = liveAccount.positions;
 
   const value: TerminalContextValue = {
     market: activeMarket,
     markets,
     activeMarketId,
     setActiveMarketId,
-    openPositions: live.active ? livePositions : openPositions,
-    history: live.active ? [] : history,
-    openPosition: open,
-    closePosition: close,
+    openPositions: positions,
+    history: [],
     positionsTab,
     setPositionsTab,
-    availableBalance,
-    equity,
-    lockedMargin,
-    fundingHistory: transactions,
-    deposit,
-    withdraw,
-    fundingMode,
-    openFunding: setFundingMode,
-    closeFunding: () => setFundingMode(null),
-    accountMode: effectiveMode,
-    setAccountMode,
+    availableBalance: balance?.availableBalance ?? 0,
+    equity: balance?.totalEquity ?? 0,
+    lockedMargin: positions.reduce((total, p) => total + p.margin, 0),
     live,
   };
 

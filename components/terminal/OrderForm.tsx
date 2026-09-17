@@ -32,8 +32,7 @@ const EXECUTED_LABEL_MS = 1200;
 const BALANCE_FRACTIONS = [0.25, 0.5, 0.75, 1];
 
 export function OrderForm() {
-  const { market, activeMarketId, openPosition, availableBalance, accountMode, live } =
-    useTerminal();
+  const { market, activeMarketId, availableBalance, live } = useTerminal();
   const bestBid = market.orderbook.bids[0];
   const bestAsk = market.orderbook.asks[0];
   const { profile } = useOnboarding();
@@ -49,7 +48,7 @@ export function OrderForm() {
   const [sizingError, setSizingError] = useState<string | null>(null);
 
   const marketConfig = MARKETS.find((m) => m.id === activeMarketId);
-  const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, live.active);
+  const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, true);
 
   // Leverage bounds come from the instrument, because a venue caps them per
   // symbol and per risk tier. Sending anything outside gets the order rejected
@@ -60,15 +59,13 @@ export function OrderForm() {
   // generous guess, which widens the moment the venue's real rules arrive.
   // The fallback that used to stand here was demo's 500-1000x, offered with
   // real money and rejected after the size had already been chosen.
-  const bounds: LeverageBounds = !live.active
-    ? FALLBACK_LEVERAGE_BOUNDS
-    : instrument
-      ? { min: instrument.minLeverage, max: instrument.maxLeverage }
-      : FALLBACK_LEVERAGE_BOUNDS;
+  const bounds: LeverageBounds = instrument
+    ? { min: instrument.minLeverage, max: instrument.maxLeverage }
+    : FALLBACK_LEVERAGE_BOUNDS;
 
-  // Switching modes changes the range under a leverage that was valid a moment
-  // ago - 750x is fine in demo and impossible on Bybit - so pull it back into
-  // range as the bounds change rather than at submit time.
+  // Changing market changes the range under a leverage that was valid a moment
+  // ago - 100x may be fine on BTC and impossible on a thinner symbol - so pull
+  // it back into range as the bounds change rather than at submit time.
   const [appliedBounds, setAppliedBounds] = useState(bounds);
   if (appliedBounds.min !== bounds.min || appliedBounds.max !== bounds.max) {
     setAppliedBounds(bounds);
@@ -87,8 +84,8 @@ export function OrderForm() {
   const exceedsBalance = margin > availableBalance;
   // A venue mode with the key still locked can show the account but not sign
   // for it. That is a prompt to unlock, not a dead form.
-  const needsUnlock = live.active && live.locked;
-  const awaitingInstrument = live.active && !instrument;
+  const needsUnlock = live.locked;
+  const awaitingInstrument = !instrument;
 
   /**
    * Demo fills immediately; a venue order goes to a confirm step first.
@@ -101,46 +98,26 @@ export function OrderForm() {
     if (margin <= 0 || exceedsBalance) return;
     setSizingError(null);
 
-    if (live.active) {
-      if (needsUnlock) {
-        openUnlock();
-        return;
-      }
-      if (!instrument) return;
-      try {
-        const { qty, notional } = sizeOrder(margin, leverage, market.price, instrument);
-        setOrderError(null);
-        setDraft({
-          symbol: instrument.symbol,
-          side,
-          qty,
-          notional,
-          leverage,
-          markPrice: market.price,
-        });
-      } catch (caught) {
-        setSizingError(
-          caught instanceof Error ? caught.message : "Could not size that order."
-        );
-      }
+    if (needsUnlock) {
+      openUnlock();
       return;
     }
+    if (!instrument) return;
 
-    openPosition({
-      marketId: activeMarketId,
-      symbol: market.symbol,
-      side,
-      leverage,
-      margin,
-      entryPrice: market.price,
-    });
-    toast({
-      variant: "success",
-      title: "Order filled",
-      description: `${side === "long" ? "Long" : "Short"} ${market.symbol} at ${formatPrice(market.price)} with ${leverage}x on ${formatCurrency(margin)} margin.`,
-    });
-    setJustExecuted(true);
-    setTimeout(() => setJustExecuted(false), EXECUTED_LABEL_MS);
+    try {
+      const { qty, notional } = sizeOrder(margin, leverage, market.price, instrument);
+      setOrderError(null);
+      setDraft({
+        symbol: instrument.symbol,
+        side,
+        qty,
+        notional,
+        leverage,
+        markPrice: market.price,
+      });
+    } catch (caught) {
+      setSizingError(caught instanceof Error ? caught.message : "Could not size that order.");
+    }
   };
 
   const handleConfirm = async () => {
@@ -258,7 +235,7 @@ export function OrderForm() {
           {/* A live account whose balance hasn't loaded is unknown, not zero.
               Rendering $0.00 would read as "this account is empty". */}
           <span className="font-mono tabular-nums text-white/60">
-            {live.active && !live.ready ? "—" : formatCurrency(availableBalance)}
+            {live.ready ? formatCurrency(availableBalance) : "—"}
           </span>
         </div>
       </div>
@@ -294,26 +271,18 @@ export function OrderForm() {
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
         <Row label="Position Size" value={`${size.toFixed(4)} ${activeMarketId}`} />
         <Row label="Entry Price" value={formatPrice(market.price)} />
-        {live.active ? (
-          // The demo engine's liquidation rule is not Bybit's, and this is the
-          // single worst number to guess at. Bybit computes it from the whole
-          // account and reports it on the position, so say that instead.
-          <Row
-            label="Liq. Price"
-            value="Set by Bybit"
-            valueClassName="text-white/50"
-            sub="Shown on the position once the order fills"
-          />
-        ) : (
-          <Row
-            label="Est. Liq. Price"
-            value={formatPrice(liquidationPrice)}
-            valueClassName="text-rose-400"
-            // Distance is formatted to the price's precision, not its own - a
-            // $64 gap on BTC should read $64.47, not $64.469.
-            sub={`${formatCurrency(Math.abs(market.price - liquidationPrice), priceDecimals(market.price))} away · ${liquidationDistancePercent(leverage).toFixed(3)}% of price`}
-          />
-        )}
+        {/* An estimate before the order, the venue's own number after it. The
+            approximation here is not the exchange's rule, and this is the
+            single worst figure to present as fact - so it is labelled as an
+            estimate and replaced by the real one on the filled position. */}
+        <Row
+          label="Est. Liq. Price"
+          value={formatPrice(liquidationPrice)}
+          valueClassName="text-rose-400"
+          // Distance is formatted to the price's precision, not its own - a
+          // $64 gap on BTC should read $64.47, not $64.469.
+          sub={`${formatCurrency(Math.abs(market.price - liquidationPrice), priceDecimals(market.price))} away · exchange sets the final price`}
+        />
       </div>
 
       <Button
@@ -322,9 +291,7 @@ export function OrderForm() {
         size="lg"
         onClick={handleExecute}
         disabled={
-          margin <= 0 ||
-          exceedsBalance ||
-          (live.active && !needsUnlock && awaitingInstrument)
+          margin <= 0 || exceedsBalance || (!needsUnlock && awaitingInstrument)
         }
         className="w-full"
       >
@@ -334,9 +301,7 @@ export function OrderForm() {
             ? "Loading market rules…"
             : justExecuted
               ? "Order Filled"
-              : live.active
-                ? `${side === "long" ? "Long" : "Short"} ${instrument?.symbol ?? market.symbol} on Bybit`
-                : `${side === "long" ? "Long" : "Short"} ${market.symbol}`}
+              : `${side === "long" ? "Long" : "Short"} ${instrument?.symbol ?? market.symbol}`}
       </Button>
 
       <LiveOrderConfirm

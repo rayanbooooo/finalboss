@@ -17,8 +17,8 @@ import { PositionsPanel } from "@/components/terminal/PositionsPanel";
 import { GuidedTour } from "@/components/terminal/GuidedTour";
 import { DEFAULT_TIMEFRAME, type Timeframe } from "@/lib/timeframes";
 import type { Candle } from "@/types/market";
-import type { PositionWithPnl } from "@/hooks/usePositions";
 import { cn } from "@/lib/utils";
+import type { PositionWithPnl } from "@/types/trading";
 
 /**
  * Mobile stacks Chart -> Order Form -> Order Book/Trades tabs -> Positions

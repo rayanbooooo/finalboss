@@ -3,10 +3,8 @@ import { TerminalProvider } from "@/contexts/TerminalContext";
 import { ExchangeProvider } from "@/contexts/ExchangeContext";
 import { TerminalBoundary } from "@/components/terminal/TerminalBoundary";
 import { TerminalSidebar } from "@/components/terminal/TerminalSidebar";
-import { FundingModal } from "@/components/terminal/FundingModal";
 import { MobileTabBar } from "@/components/terminal/MobileTabBar";
 import { ExchangeModals } from "@/components/terminal/ExchangeModals";
-import { SaveRunPrompt } from "@/components/terminal/SaveRunPrompt";
 
 export default function TerminalRouteLayout({ children }: { children: ReactNode }) {
   return (
@@ -27,11 +25,9 @@ export default function TerminalRouteLayout({ children }: { children: ReactNode 
               {/* Below the terminal rather than above it: it appears after a
                   position closes, and pushing the chart down at that moment
                   would move the thing they are looking at. */}
-              <SaveRunPrompt />
             </div>
           </div>
           <MobileTabBar />
-          <FundingModal />
           <ExchangeModals />
         </TerminalProvider>
       </ExchangeProvider>

@@ -30,7 +30,7 @@ function venueSymbolFromId(id: string): string | null {
 }
 
 export function OpenPositionsTable() {
-  const { openPositions, closePosition, live } = useTerminal();
+  const { openPositions, live } = useTerminal();
   const { credentials, openUnlock } = useExchange();
   const { toast } = useToast();
   const [draft, setDraft] = useState<LiveOrderDraft | null>(null);
@@ -175,37 +175,30 @@ export function OpenPositionsTable() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    // A venue position is closed by a reduce-only order at the
-                    // exchange, not by the demo engine - which holds no record
-                    // of it and would report a close that never happened.
-                    if (live.active) {
-                      if (live.locked) {
-                        openUnlock();
-                        return;
-                      }
-                      const venueSymbol = venueSymbolFromId(position.id);
-                      if (!venueSymbol) return;
-                      setCloseError(null);
-                      setDraft({
-                        symbol: venueSymbol,
-                        side: position.side,
-                        qty: position.size,
-                        notional: position.size * position.markPrice,
-                        leverage: position.leverage,
-                        markPrice: position.markPrice,
-                        reduceOnly: true,
-                      });
+                    // A position is closed by a reduce-only order at the
+                    // exchange. There is no local close any more: the demo
+                    // engine that used to offer one held no record of a real
+                    // position and would have reported a close that never
+                    // happened.
+                    if (live.locked) {
+                      openUnlock();
                       return;
                     }
-                    closePosition(position.id);
-                    toast({
-                      variant: profit ? "success" : "warning",
-                      title: `${position.symbol} position closed`,
-                      description: `${profit ? "Profit" : "Loss"} of ${formatCurrency(Math.abs(position.pnl))} at ${formatPrice(position.markPrice)}.`,
+                    const venueSymbol = venueSymbolFromId(position.id);
+                    if (!venueSymbol) return;
+                    setCloseError(null);
+                    setDraft({
+                      symbol: venueSymbol,
+                      side: position.side,
+                      qty: position.size,
+                      notional: position.size * position.markPrice,
+                      leverage: position.leverage,
+                      markPrice: position.markPrice,
+                      reduceOnly: true,
                     });
                   }}
                 >
-                  {live.active && live.locked ? "Unlock" : "Close"}
+                  {live.locked ? "Unlock" : "Close"}
                 </Button>
               </td>
             </tr>
