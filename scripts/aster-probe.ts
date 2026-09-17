@@ -37,6 +37,7 @@
 import { privateKeyToAccount } from "viem/accounts";
 
 import { asterNetwork, type AsterNetwork } from "@/lib/exchange/aster/endpoints";
+import { parseMaxLeverage } from "@/lib/exchange/aster/account";
 import { leverageBracketCall } from "@/lib/exchange/aster/requests";
 import { SORT_KEYS_ASCII, nextNonce } from "@/lib/exchange/aster/signing";
 
@@ -157,30 +158,33 @@ async function main(): Promise<void> {
   }
 
   // The answer this script exists for.
+  //
+  // Parsing goes through the app's own reader rather than a second copy here.
+  // The copy that used to live in this file assumed an array, which is only
+  // what leverageBracket returns when NO symbol is sent - narrowed to one, as
+  // this script does, it answers with a bare object, and the hand-rolled
+  // version would have thrown on the very response it was written to read.
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(text) as Array<{
-      symbol?: string;
-      brackets?: Array<{ initialLeverage?: number; notionalCap?: number }>;
-    }>;
-
-    const leverages = parsed
-      .flatMap((entry) => entry.brackets ?? [])
-      .map((bracket) => bracket.initialLeverage)
-      .filter((value): value is number => typeof value === "number");
-
-    if (leverages.length > 0) {
-      const max = Math.max(...leverages);
-      console.log("--- the answer --------------------------------------------");
-      console.log(`Max leverage Aster permits on ${SYMBOL} via the API: ${max}x`);
-      console.log(
-        max > 125
-          ? "Above 125 - the docs' \"1 to 125\" is inherited Binance wording. Carry on."
-          : "125 or below - high leverage is not reachable through this API. Stop and rethink."
-      );
-    }
+    parsed = JSON.parse(text);
   } catch {
-    console.log("Response was not the JSON shape expected; the raw body is above.");
+    console.log("Response was not JSON; the raw body is above.");
+    return;
   }
+
+  const max = parseMaxLeverage(parsed, SYMBOL);
+  if (max === null) {
+    console.log("No leverage brackets in that response; the raw body is above.");
+    return;
+  }
+
+  console.log("--- the answer --------------------------------------------");
+  console.log(`Max leverage Aster permits on ${SYMBOL} via the API: ${max}x`);
+  console.log(
+    max > 125
+      ? 'Above 125 - the docs\' "1 to 125" is inherited Binance wording. Carry on.'
+      : "125 or below - high leverage is not reachable through this API. Stop and rethink."
+  );
 }
 
 main().catch((error: unknown) => {
