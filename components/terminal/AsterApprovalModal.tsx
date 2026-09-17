@@ -5,7 +5,8 @@ import { Check, ShieldCheck, X } from "lucide-react";
 
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { useAsterAgent, type AgentStatus } from "@/hooks/useAsterAgent";
+import { useAster } from "@/contexts/AsterContext";
+import type { AgentStatus } from "@/hooks/useAsterAgent";
 import { APPROVAL_DAYS } from "@/lib/exchange/aster/agent";
 
 interface AsterApprovalModalProps {
@@ -26,7 +27,7 @@ const STATUS_LABEL: Record<Exclude<AgentStatus, "idle">, string> = {
 };
 
 export function AsterApprovalModal({ isOpen, onClose, userId }: AsterApprovalModalProps) {
-  const { agent, ready, status, error, approve, revoke } = useAsterAgent(userId);
+  const { agent, approved, status, error, approve, revoke } = useAster();
   const [passphrase, setPassphrase] = useState("");
 
   const busy = status !== "idle";
@@ -36,7 +37,7 @@ export function AsterApprovalModal({ isOpen, onClose, userId }: AsterApprovalMod
     setPassphrase("");
   };
 
-  if (ready && agent) {
+  if (approved && agent) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Aster is connected">
         <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">

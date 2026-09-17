@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useWalletModal } from "@/contexts/WalletModalContext";
-import { useAsterAgent } from "@/hooks/useAsterAgent";
+import { useAster } from "@/contexts/AsterContext";
 import { AsterApprovalModal } from "@/components/terminal/AsterApprovalModal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -23,21 +23,21 @@ export function AsterPanel() {
   const { userId } = useOnboarding();
   const { isConnected } = useAccount();
   const { open: openWallet } = useWalletModal();
-  const { agent, ready } = useAsterAgent(userId);
+  const { agent, approved } = useAster();
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
     <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-white">Aster</h2>
-        {ready ? (
+        {approved ? (
           <Badge variant="emerald">Approved</Badge>
         ) : (
           <Badge variant="violet">Up to 200x</Badge>
         )}
       </div>
 
-      {ready && agent ? (
+      {approved && agent ? (
         <>
           <p className="mt-1.5 flex items-start gap-2 text-sm leading-relaxed text-white/55">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
