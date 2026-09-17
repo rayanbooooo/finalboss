@@ -34,7 +34,7 @@ export function MarketsSection() {
           </h2>
           <p className="mt-4 text-white/50">
             Real-time pricing across five perpetual markets — the same feed
-            that drives the terminal, not a canned demo.
+            that drives the terminal, and the same one your orders fill against.
           </p>
         </Reveal>
 

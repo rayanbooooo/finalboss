@@ -68,7 +68,7 @@ export function StatsSection() {
               <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-white sm:text-4xl">
                 {VENUE_MAX_LEVERAGE}x
               </div>
-              <div className="mt-1.5 text-xs text-white/35">On demo funds, on every market</div>
+              <div className="mt-1.5 text-xs text-white/35">Where the exchange allows it</div>
             </div>
           </div>
         </div>

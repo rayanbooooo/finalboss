@@ -21,7 +21,7 @@ export function FinalCta() {
           Your first trade is one click away.
         </h2>
         <p className="mx-auto mt-4 max-w-md text-white/55">
-          Open the terminal and trade demo funds on live prices right now. No
+          Connect your exchange account and trade from a screen built for it. No
           account needed to try it, nothing to deposit, nothing to lose.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

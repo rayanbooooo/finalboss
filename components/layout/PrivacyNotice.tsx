@@ -45,9 +45,10 @@ export function PrivacyNotice() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">How this site stores your data</p>
           <p className="mt-1 text-sm leading-relaxed text-white/55">
-            No advertising or analytics cookies are used. Your profile, demo
-            balance and positions are kept in this browser, and in your account
-            if you create one, purely to make the app work. See the{" "}
+            No advertising or analytics cookies are used. Your profile is kept
+            in this browser, and in your account if you create one, purely to
+            make the app work. Balances and positions are read from your
+            exchange and never stored here. See the{" "}
             <Link href="/terms" className="text-violet-300 hover:underline">
               terms
             </Link>{" "}

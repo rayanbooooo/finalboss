@@ -6,7 +6,7 @@ const PILLARS = [
     icon: Lock,
     title: "Non-custodial by design",
     description:
-      "There is no deposit address on this site and no balance we control. Demo funds are simulated; real funds stay in your own account at your own exchange.",
+      "There is no deposit address on this site and no balance we control. Your funds stay in your own account at your own exchange, and this terminal is never granted permission to withdraw them.",
   },
   {
     icon: Eye,

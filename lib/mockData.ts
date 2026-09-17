@@ -35,15 +35,15 @@ export interface Feature {
 export const FEATURES: Feature[] = [
   {
     icon: Gauge,
-    title: "Up to 1000x Leverage",
+    title: "Up to 200x Leverage",
     description:
-      "Size a demo position anywhere from 500x to 1000x on one slider, and watch what that does to your liquidation price before you commit to it.",
+      "Size a position on one slider up to whatever your exchange allows for that market, and watch your liquidation price move before you commit to it.",
   },
   {
     icon: LineChart,
-    title: "Practice at Real Prices",
+    title: "Your Account, Better Screen",
     description:
-      "Demo mode runs on the same live Bybit feed as a funded account \u2014 same candles, same 24h range, same moves. Only the money is simulated.",
+      "Orders execute on your own account at the exchange. Your funds never leave it, and this terminal is never given permission to withdraw them.",
   },
   {
     icon: KeyRound,
@@ -86,21 +86,21 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   },
   {
     step: 2,
-    title: "Start in demo",
+    title: "Connect your exchange",
     description:
-      "You start with demo funds priced off the live Bybit feed. There is nothing to deposit and no balance we hold \u2014 the money is simulated, the market is not.",
+      "Authorise your own account at a supported exchange. There is nothing to deposit here and no balance we hold \u2014 your funds stay where they are.",
   },
   {
     step: 3,
     title: "Choose your leverage",
     description:
-      "Dial in anywhere from 500x to 1000x, go long or short, and see the liquidation price move as you do it.",
+      "Dial in the leverage your exchange allows for that market, go long or short, and see the liquidation price move as you do it.",
   },
   {
     step: 4,
     title: "Trade and manage risk",
     description:
-      "Track positions, PnL and liquidation live, and close whenever you want. When you are ready for real money, connect your own exchange account.",
+      "Track positions, PnL and liquidation live, and close whenever you want. Every order is real, so size accordingly.",
   },
 ];
 

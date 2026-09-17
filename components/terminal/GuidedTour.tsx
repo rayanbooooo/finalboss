@@ -46,7 +46,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Place your first trade",
-    body: "Everything here runs on demo funds - nothing you do costs real money. The prices are real though, streamed live from Coinbase, so the outcomes are honest.",
+    body: "Every order here executes on your own account at the exchange, with your own money. There is no practice mode - the first order you place is real.",
   },
   {
     target: "direction",

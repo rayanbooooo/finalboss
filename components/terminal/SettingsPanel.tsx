@@ -214,8 +214,8 @@ export function SettingsPanel() {
         </Button>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-white/35">
-        Signing out clears this browser&apos;s saved profile, demo positions and
-        balance, and locks any connected exchange key.
+        Signing out clears this browser&apos;s saved profile and locks any
+        connected exchange key. Your positions and funds stay at the exchange.
       </p>
     </div>
   );

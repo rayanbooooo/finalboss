@@ -90,7 +90,7 @@ export function ConnectExchangeModal({ isOpen, onClose }: ConnectExchangeModalPr
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
           This connects your real Bybit account. Every order placed on it moves real
-          money, starting with the first one. Demo mode is the only place to
+          money, starting with the first one. There is no practice mode to
           practise, and it does not touch this account.
         </span>
       </p>
