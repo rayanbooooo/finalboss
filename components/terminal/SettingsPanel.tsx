@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, RotateCcw } from "lucide-react";
 import { startGuidedTour } from "@/components/terminal/GuidedTour";
 import { ExchangePanel } from "@/components/terminal/ExchangePanel";
+import { AsterPanel } from "@/components/terminal/AsterPanel";
 import { LinkedWallet } from "@/components/terminal/LinkedWallet";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSignOut } from "@/hooks/useSignOut";
@@ -185,6 +186,7 @@ export function SettingsPanel() {
       </section>
 
       <ExchangePanel />
+      <AsterPanel />
 
       <LinkedWallet />
 
