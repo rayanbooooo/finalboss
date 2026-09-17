@@ -18,9 +18,8 @@ import {
   calcPositionSize,
   clampLeverage,
   liquidationDistancePercent,
-  DEMO_LEVERAGE_BOUNDS,
-  LIVE_FALLBACK_LEVERAGE_BOUNDS,
-  MIN_LEVERAGE,
+  FALLBACK_LEVERAGE_BOUNDS,
+  DEFAULT_LEVERAGE,
   type LeverageBounds,
 } from "@/lib/calculations";
 import { openLivePosition, sizeOrder } from "@/lib/exchange/orders";
@@ -41,7 +40,7 @@ export function OrderForm() {
   const { toast } = useToast();
   const { credentials, openUnlock } = useExchange();
   const [side, setSide] = useState<OrderSide>("long");
-  const [leverage, setLeverage] = useState(() => clampLeverage(profile?.defaultLeverage ?? MIN_LEVERAGE));
+  const [leverage, setLeverage] = useState(() => clampLeverage(profile?.defaultLeverage ?? DEFAULT_LEVERAGE));
   const [margin, setMargin] = useState(1000);
   const [justExecuted, setJustExecuted] = useState(false);
   const [draft, setDraft] = useState<LiveOrderDraft | null>(null);
@@ -52,20 +51,20 @@ export function OrderForm() {
   const marketConfig = MARKETS.find((m) => m.id === activeMarketId);
   const instrument = useInstrument(marketConfig?.bybitSymbol ?? null, live.active);
 
-  // Demo's 500-1000x exists at no real venue, so a connected account takes its
-  // range from the instrument. Sending anything outside it gets the order
-  // rejected rather than clamped.
+  // Leverage bounds come from the instrument, because a venue caps them per
+  // symbol and per risk tier. Sending anything outside gets the order rejected
+  // rather than clamped.
   //
   // The three cases are deliberately distinct. A live account whose instrument
-  // has not loaded yet must NOT fall back to the demo range: that would offer
-  // 500-1000x with real money and have Bybit reject the order after the size
-  // was already chosen. It falls back to a conservative live bound instead,
-  // which widens the moment the venue's real rules arrive.
+  // has not loaded yet falls back to a conservative bound rather than a
+  // generous guess, which widens the moment the venue's real rules arrive.
+  // The fallback that used to stand here was demo's 500-1000x, offered with
+  // real money and rejected after the size had already been chosen.
   const bounds: LeverageBounds = !live.active
-    ? DEMO_LEVERAGE_BOUNDS
+    ? FALLBACK_LEVERAGE_BOUNDS
     : instrument
       ? { min: instrument.minLeverage, max: instrument.maxLeverage }
-      : LIVE_FALLBACK_LEVERAGE_BOUNDS;
+      : FALLBACK_LEVERAGE_BOUNDS;
 
   // Switching modes changes the range under a leverage that was valid a moment
   // ago - 750x is fine in demo and impossible on Bybit - so pull it back into

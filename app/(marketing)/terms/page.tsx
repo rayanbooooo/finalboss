@@ -31,12 +31,12 @@ const SECTIONS: Section[] = [
   {
     title: "3. Connecting your own exchange account",
     body: [
-      "You may connect an API key for your own account at a supported exchange (currently Bybit). Doing so does not give FinalBoss custody of anything: your funds stay in your account at that exchange, subject to that exchange's own terms, and any orders that result execute there and not here. There is no testnet or practice mode for a connected account — the first order you place on it is with real money, and Demo mode is the only place to rehearse.",
+      "You may connect your own account at a supported exchange. Doing so does not give FinalBoss custody of anything: your funds stay in your account at that exchange, subject to that exchange's own terms, and any orders that result execute there and not here. There is no practice mode \u2014 the first order you place is with real money.",
       "Keys that carry withdrawal permission are refused at connection time and are never stored. Please create a trade-only key. This is a deliberate limit on the damage any compromise of this site could do — without withdrawal permission, a key cannot move funds off the exchange.",
       "If you choose to save a key, your API secret is encrypted in your own browser under a passphrase you choose (PBKDF2-SHA256, then AES-GCM) and only the resulting ciphertext, its salt and its initialisation vector are stored. The passphrase is never sent to us and we cannot recover it: if you forget it, the saved secret is unrecoverable and you will need to connect the key again. That is a property of the design, not an oversight. You may also choose not to save the key at all, in which case the secret is held in memory for that browser session only.",
       "Your API key identifier (not the secret) is stored in readable form, because it is an identifier rather than a credential and the interface needs it to show you which key is connected before anything is unlocked.",
       "Requests to the exchange are signed in your browser and passed through a relay on this site, which forwards them without being able to read or alter the signed content. A decrypted secret is held only in memory and is cleared when you close the tab, when you sign out, and automatically after a period of inactivity.",
-      "Leverage on a connected account is whatever that exchange allows for that symbol, read from the exchange itself. It is far lower than the range demo mode offers \u2014 the \"up to 1000x\" figure elsewhere on this site describes demo mode only, and no real venue we support offers anything close to it. The leverage control shows the venue's actual range whenever you are pointed at a real account.",
+      "Leverage is whatever the exchange allows for that symbol, read from the exchange itself rather than set here. It varies by symbol and by position size, and the leverage control always shows the venue's actual range. The highest currently available on any symbol we support is 200x, on BTC at Aster; higher figures appeared on this site while a simulated mode existed and were never obtainable with real money.",
       "Orders on a connected account always go through a confirmation step showing the exact quantity, order value and leverage being sent. There are no one-click orders against real money.",
     ],
   },
@@ -61,16 +61,16 @@ const SECTIONS: Section[] = [
     title: "6. Simulated trading, no financial advice",
     body: [
       "Nothing on this site — leverage calculators, liquidation-price previews, market data, or any other figure — is financial, investment, tax, or legal advice, and none of it should be relied on to make real trading decisions.",
-      "Formulas used for position size, liquidation price, and profit/loss (see the terminal's own calculations) are simplified, illustrative approximations built for a convincing demo, not a production-grade risk engine. They intentionally ignore real-world factors like funding rates, partial liquidations, and exchange fees.",
-      "In particular, the demo engine liquidates a position once roughly 65% of its margin is gone, which puts liquidation about 0.065% from entry at 1000x and 0.130% at 500x — the same percentage on every market. A real venue sets its own maintenance margin, varies it by symbol and position size, and may account for your whole account balance rather than one position's margin. Do not treat a liquidation price shown here as the one your exchange would use.",
+      "Formulas used for position size, liquidation price, and profit/loss (see the terminal's own calculations) are simplified approximations, not a production-grade risk engine. They intentionally ignore real-world factors like funding rates, partial liquidations, and exchange fees, and they drive only the preview shown before a position is opened.",
+      "In particular, the preview assumes a position is liquidated once roughly 90% of its margin is gone, which puts liquidation about 0.45% from entry at 200x \u2014 the same percentage on every market. A real venue sets its own maintenance margin, varies it by symbol and position size, and may account for your whole account balance rather than one position's margin. Once a position is open the liquidation price shown is the exchange's own; before it is open, treat the preview as an estimate.",
     ],
   },
   {
     title: "7. Risk disclosure",
     body: [
-      "This section expands on the risk notice shown throughout the site: trading perpetual futures with leverage carries a substantial risk of loss and is not suitable for all investors. Leverage up to 1000x can result in the total loss of margin in moments of high volatility.",
-      "At 1000x, a move of about a tenth of a percent against you is the whole of your margin. On a market that routinely moves several percent in a day, that is a matter of seconds, and it is the expected outcome rather than an unlucky one.",
-      "This applies even though trading in Demo mode is simulated — the numbers are designed to behave the way a real high-leverage market would, specifically so the risk is felt, not just stated. Treat every liquidation you see here as a preview of what the same leverage would do with real money.",
+      "This section expands on the risk notice shown throughout the site: trading perpetual futures with leverage carries a substantial risk of loss and is not suitable for all investors. Leverage of the kind available here can result in the total loss of margin in moments of high volatility.",
+      "At 200x, a move of about half a percent against you is the whole of your margin. On a market that routinely moves several percent in a day, that is a matter of minutes, and it is the expected outcome rather than an unlucky one. Fees make it worse: at 200x a single round trip costs several percent of your margin before the price has moved at all.",
+      "Every order placed through this terminal executes on your own account at a third-party exchange with your own funds. There is no simulated mode and no practice balance: the first order you place is with real money.",
     ],
   },
   {

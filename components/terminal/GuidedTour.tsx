@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { useTerminal } from "@/contexts/TerminalContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { formatCurrency } from "@/lib/format";
-import { MIN_LEVERAGE } from "@/lib/calculations";
 import { cn } from "@/lib/utils";
 import { scopedKey, STORAGE_KEYS } from "@/lib/storageKeys";
 
@@ -267,8 +266,8 @@ export function GuidedTour() {
 
       {step === 0 && (
         <p className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-          {formatCurrency(availableBalance)} in demo funds is already in the account,
-          ready to trade from {MIN_LEVERAGE}x.
+          {formatCurrency(availableBalance)} available in the account. Leverage
+          comes from the exchange and differs per market.
         </p>
       )}
 

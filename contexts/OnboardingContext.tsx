@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import { MIN_LEVERAGE } from "@/lib/calculations";
+import { DEFAULT_LEVERAGE } from "@/lib/calculations";
 import { attributePendingReferral, generateReferralCode } from "@/lib/referrals";
 import { clearPerUserStorage, STORAGE_KEYS } from "@/lib/storageKeys";
 import { isSignedIn } from "@/lib/session";
@@ -50,7 +50,7 @@ function fallbackProfile(email: string | undefined): OnboardingProfile {
     displayName: email ? email.split("@")[0] : "Trader",
     experienceLevel: "some",
     riskTolerance: "moderate",
-    defaultLeverage: MIN_LEVERAGE,
+    defaultLeverage: DEFAULT_LEVERAGE,
     createdAt: Date.now(),
   };
 }

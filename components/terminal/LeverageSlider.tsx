@@ -6,9 +6,7 @@ import {
   liquidationDistancePercent,
   sliderValueFromLeverage,
   clampLeverage,
-  DEMO_LEVERAGE_BOUNDS,
-  MAX_LEVERAGE,
-  MIN_LEVERAGE,
+  FALLBACK_LEVERAGE_BOUNDS,
   type LeverageBounds,
 } from "@/lib/calculations";
 import { formatCurrency, priceDecimals } from "@/lib/format";
@@ -25,18 +23,16 @@ interface LeverageSliderProps {
    * where the full control is taller than the card it sits in. The risk
    * warning is never dropped - that is the part worth the space. */
   compact?: boolean;
-  /** The range on offer. Demo's is a constant; a connected account's comes from
-   * the venue, differs per symbol, and is nowhere near this wide. */
+  /** The range on offer. Comes from the venue and differs per symbol; the
+   * fallback applies only until the instrument's rules arrive. */
   bounds?: LeverageBounds;
 }
 
-const DEMO_PRESETS = [500, 600, 750, 850, 1000];
 /** Round numbers a trader would actually pick, filtered to whatever the venue
  * allows. Generating evenly-spaced values instead would offer things like 37x. */
 const VENUE_PRESET_CANDIDATES = [1, 2, 3, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200];
 
 function presetsFor(bounds: LeverageBounds): number[] {
-  if (bounds.min === MIN_LEVERAGE && bounds.max === MAX_LEVERAGE) return DEMO_PRESETS;
   const inRange = VENUE_PRESET_CANDIDATES.filter(
     (value) => value >= bounds.min && value <= bounds.max
   );
@@ -50,13 +46,13 @@ export function LeverageSlider({
   onChange,
   price,
   compact = false,
-  bounds = DEMO_LEVERAGE_BOUNDS,
+  bounds = FALLBACK_LEVERAGE_BOUNDS,
 }: LeverageSliderProps) {
   const sliderValue = sliderValueFromLeverage(leverage, bounds);
   const presets = presetsFor(bounds);
-  // The whole range starts at 500x, so every setting is extreme by any normal
-  // measure - there's no "safe" end of this slider to reassure anyone about,
-  // which is why the track starts amber rather than green.
+  // The track runs amber to red rather than green to red. A venue's range now
+  // starts at 1x, but this is still leveraged trading at every setting, and a
+  // green low end would read as an endorsement of the safe-looking end.
   const distance = liquidationDistancePercent(leverage);
   const distanceInDollars = price && price > 0 ? (price * distance) / 100 : null;
 

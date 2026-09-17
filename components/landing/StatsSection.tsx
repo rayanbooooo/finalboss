@@ -4,7 +4,7 @@ import { StatsCounter } from "@/components/landing/StatsCounter";
 import { Reveal } from "@/components/ui/Reveal";
 import { useGlobalMarketFeed } from "@/contexts/MarketFeedContext";
 import { MARKETS } from "@/lib/markets";
-import { MAX_LEVERAGE } from "@/lib/calculations";
+import { VENUE_MAX_LEVERAGE } from "@/lib/calculations";
 
 /**
  * Three figures about the markets this site trades.
@@ -66,7 +66,7 @@ export function StatsSection() {
                 Max Leverage
               </div>
               <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-white sm:text-4xl">
-                {MAX_LEVERAGE}x
+                {VENUE_MAX_LEVERAGE}x
               </div>
               <div className="mt-1.5 text-xs text-white/35">On demo funds, on every market</div>
             </div>

@@ -54,7 +54,7 @@ export function Footer() {
           <p className="text-xs leading-relaxed text-white/40">
             <strong className="text-white/60">Risk disclaimer:</strong> Trading
             perpetual futures with leverage carries a substantial risk of loss and
-            is not suitable for all investors. Leverage up to 1000x can result in
+            is not suitable for all investors. Leverage of the kind available here can result in
             the total loss of your margin in moments of high volatility. Demo mode
             is simulated and risks nothing; connecting your own exchange account
             means orders execute on that account with real money, starting with

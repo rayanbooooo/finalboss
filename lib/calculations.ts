@@ -16,35 +16,38 @@ export function calcSma(candles: Candle[], period = SMA_PERIOD): (number | null)
 }
 
 /**
- * All formulas below are simplified, demo-only approximations of a real
- * exchange's isolated-margin engine (they ignore funding rates, fees, and
- * partial liquidation) — good enough to drive a convincing UI, not a real
- * risk engine.
+ * Simplified approximations of a venue's isolated-margin engine: they ignore
+ * funding, fees and partial liquidation. They drive the PREVIEW a trader sees
+ * before opening a position. Once a position exists, its numbers are read back
+ * from the exchange, because an approximation is not good enough with money on
+ * it.
  */
 /**
  * The share of the margin that is gone by the time a position is liquidated.
+ *
  * The remainder is the buffer a venue keeps back to cover fees and slippage on
- * the forced close, so the account doesn't go negative.
+ * the forced close, so the account does not go negative. Expressed as a share
+ * of MARGIN rather than of notional, which is what makes it the same percentage
+ * on every symbol: the distance is 0.9/leverage of the entry price whether that
+ * price is BTC's or DOGE's.
  *
- * Calibrated to the brief: $50 from entry at 1000x and $100 at 500x on BTC.
- * Those are the same fraction of margin - at BTC $77,200 the margin is $77.20
- * at 1000x and $154.40 at 500x, and $50 and $100 are both 64.77% of it - so a
- * single constant satisfies both targets and the dollar distance halves exactly
- * as leverage doubles. Every leverage in between falls out of the same curve
- * rather than an interpolation table.
+ * 0.9 is an approximation of a real venue's isolated-margin engine, where the
+ * usable share is one minus a maintenance-margin ratio of roughly half a
+ * percent of notional. It replaced 0.65, which was fitted to a demo brief -
+ * specific dollar distances at 500x and 1000x - and at the leverage a venue
+ * actually permits it put liquidation a third nearer than it really is,
+ * understating how much room a position has.
  *
- * Expressed as a share of *margin* rather than of notional, which is what makes
- * it the same percentage on every symbol: the distance is 0.65/leverage of the
- * entry price whether that price is BTC's or DOGE's.
+ * This drives the PREVIEW only. An open position shows the venue's own
+ * liquidation price, read back from the exchange, because an approximation is
+ * not good enough once money is on it.
  *
- * Two earlier versions got this wrong in opposite directions. 0.5% of notional
- * crossed 1/leverage at 200x and put the liquidation price on the wrong side of
- * entry; 0.03% of notional was right in shape but left the distance too far.
- * This formulation cannot produce either failure: 0.65/leverage is always
- * positive and always below 1/leverage, so liquidation is always between entry
- * and total loss of margin, by construction rather than by clamp.
+ * The formulation cannot produce either of the failures earlier versions had:
+ * 0.9/leverage is always positive and always below 1/leverage, so liquidation
+ * is always between entry and total loss of margin, by construction rather
+ * than by clamp.
  */
-const LIQUIDATION_MARGIN_FRACTION = 0.65;
+const LIQUIDATION_MARGIN_FRACTION = 0.9;
 
 /** How far price can move against a position before it's liquidated, as a
  * fraction of the entry price. */
@@ -86,8 +89,26 @@ export function calcPnlPercent(pnl: number, margin: number): number {
   return (pnl / margin) * 100;
 }
 
-export const MIN_LEVERAGE = 500;
-export const MAX_LEVERAGE = 1000;
+/**
+ * Where a new trader starts.
+ *
+ * Ten, not the maximum. The previous default was 500x, which came from demo
+ * mode and exists at no venue this terminal can reach - so every new account
+ * opened on a number that would have been rejected. A default is a
+ * recommendation whether or not it is meant as one.
+ */
+export const DEFAULT_LEVERAGE = 10;
+
+/**
+ * The highest leverage any symbol here currently offers, for COPY ONLY.
+ *
+ * 200x is what Aster's own interface allows on BTCUSDT. It is not a bound used
+ * in any calculation - the real limit is per symbol and comes from the venue
+ * via `leverageBracket` - it exists so a headline and a marketing page cannot
+ * drift away from what the product can actually do. The number this replaced
+ * was 1000x, which was never available anywhere with real money.
+ */
+export const VENUE_MAX_LEVERAGE = 200;
 
 export interface LeverageBounds {
   min: number;
@@ -95,39 +116,27 @@ export interface LeverageBounds {
 }
 
 /**
- * The range demo mode offers. Live mode does not use it: a real venue caps
- * leverage per symbol and per risk tier - Bybit allows nothing like 1000x on
- * BTC - so bounds there come from the instrument, and passing these would
- * produce orders the exchange rejects.
- */
-export const DEMO_LEVERAGE_BOUNDS: LeverageBounds = {
-  min: MIN_LEVERAGE,
-  max: MAX_LEVERAGE,
-};
-
-/**
- * What a connected account may use before the venue's own rules have arrived.
+ * What may be used before the venue's own rules have arrived.
  *
  * `useInstrument` returns null while the fetch is in flight and after a failed
- * one, and the obvious fallback - the demo bounds - is the wrong answer in the
- * worst way: it offers a live trader 500-1000x, which exists at no venue, so
- * the first order of the session is rejected by Bybit after they have already
- * chosen a size. The demo range must never be reachable with real money.
+ * one, so something has to stand in. 5x, because this bound is a guess about a
+ * symbol whose rules are not yet known and is only in force for the moment
+ * before they arrive: every venue permits at least this, so it can never itself
+ * be the cause of a rejection, and the range widens to the symbol's real
+ * maximum the instant the instrument loads.
  *
- * 5x rather than something more generous because this bound is a guess about a
- * symbol whose rules are not known yet, and it is only ever in force for the
- * moment before they arrive. Every Bybit USDT perpetual permits at least this,
- * so it cannot itself be the cause of a rejection, and the range widens to the
- * symbol's real maximum the instant the instrument loads.
+ * What used to stand here was the demo range, 500-1000x, offered to a connected
+ * account with real money. It exists at no venue, so the first order of a
+ * session was rejected after the size had already been chosen.
  */
-export const LIVE_FALLBACK_LEVERAGE_BOUNDS: LeverageBounds = { min: 1, max: 5 };
+export const FALLBACK_LEVERAGE_BOUNDS: LeverageBounds = { min: 1, max: 5 };
 
-/** Existing profiles predate the 500x floor, and a profile saved in demo mode
- * carries a leverage no venue will accept, so a stored default is always pulled
- * into whatever range currently applies rather than trusted. */
+/** A stored default is always pulled into whatever range currently applies
+ * rather than trusted: profiles saved before this carry leverages from demo
+ * mode - 500x and above - that no venue will accept. */
 export function clampLeverage(
   leverage: number,
-  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+  bounds: LeverageBounds = FALLBACK_LEVERAGE_BOUNDS
 ): number {
   const min = Math.min(bounds.min, bounds.max);
   const max = Math.max(bounds.min, bounds.max);
@@ -135,14 +144,11 @@ export function clampLeverage(
   return Math.min(max, Math.max(min, Math.round(leverage)));
 }
 
-/**
- * Linear across the 0-100 slider. Demo's range is only 2x wide, so an
- * exponential curve would buy nothing and would make round numbers
- * unreachable; a venue range is wider but still reads naturally linear.
- */
+/** Linear across the 0-100 slider. A venue's range reads naturally linear, and
+ *  an exponential curve would make round numbers hard to land on. */
 export function leverageFromSliderValue(
   sliderValue: number,
-  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+  bounds: LeverageBounds = FALLBACK_LEVERAGE_BOUNDS
 ): number {
   const t = clampSlider(sliderValue) / 100;
   return clampLeverage(bounds.min + t * (bounds.max - bounds.min), bounds);
@@ -150,7 +156,7 @@ export function leverageFromSliderValue(
 
 export function sliderValueFromLeverage(
   leverage: number,
-  bounds: LeverageBounds = DEMO_LEVERAGE_BOUNDS
+  bounds: LeverageBounds = FALLBACK_LEVERAGE_BOUNDS
 ): number {
   const span = bounds.max - bounds.min;
   if (span <= 0) return 0;
@@ -167,8 +173,8 @@ export function liquidationDistancePercent(leverage: number): number {
  * Signed move from entry as a percentage of the entry price.
  *
  * Deliberately separate from calcPnlPercent, which is a percentage of the
- * margin. The two differ by exactly the leverage - 0.028% of price is 28% of
- * margin at 1000x - and showing either one as a bare "%" next to the other is
+ * margin. The two differ by exactly the leverage - 0.14% of price is 28% of
+ * margin at 200x - and showing either one as a bare "%" next to the other is
  * what makes a position look like it should already have been liquidated.
  */
 export function priceMovePercent(entryPrice: number, markPrice: number): number {

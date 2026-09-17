@@ -12,7 +12,7 @@ import {
   calcLiquidationPrice,
   calcPnl,
   calcPositionSize,
-  MIN_LEVERAGE,
+  DEFAULT_LEVERAGE,
 } from "@/lib/calculations";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { OrderSide } from "@/types/trading";
@@ -20,10 +20,10 @@ import { cn } from "@/lib/utils";
 
 const EASE = [0.21, 0.47, 0.32, 0.98] as const;
 const PREVIEW_MARGIN = 1000;
-const CARD_LEVERAGE = MIN_LEVERAGE;
-// A 0.1% favourable move. At 500x anything larger would be a position that
-// had already been liquidated by the opposite move, so a bigger discount
-// here would advertise a gain the engine can't actually produce.
+const CARD_LEVERAGE = DEFAULT_LEVERAGE;
+// A 0.1% favourable move - small enough that the position it illustrates could
+// not already have been liquidated by the opposite move, so the card never
+// advertises a gain the engine cannot produce.
 const CARD_ENTRY_DISCOUNT = 0.999;
 
 export function Hero() {
@@ -36,13 +36,13 @@ export function Hero() {
   const launchHref = "/terminal";
 
   const [side, setSide] = useState<OrderSide>("long");
-  const [leverage, setLeverage] = useState(MIN_LEVERAGE);
+  const [leverage, setLeverage] = useState(DEFAULT_LEVERAGE);
   // Derived from the live price, not frozen at first paint. Frozen, it kept
   // whatever the feed seeds with before connecting while the mark went on to
   // the real price - the gap between the two became the card's "profit", and
-  // it advertised a $64,478 gain on $1,000 of margin. At 500x that move would
-  // have been liquidated many times over before it arrived. Tracking the price
-  // keeps the card showing exactly the 0.1% move it claims, around $500.
+  // it advertised a $64,478 gain on $1,000 of margin - a move that would have
+  // been liquidated many times over before it arrived. Tracking the price keeps
+  // the card showing exactly the 0.1% move it claims.
   const cardEntry = market.price * CARD_ENTRY_DISCOUNT;
 
   const cardSize = calcPositionSize(PREVIEW_MARGIN, CARD_LEVERAGE, cardEntry);
@@ -78,15 +78,15 @@ export function Hero() {
             Perpetuals,
             <br />
             <span className="bg-gradient-to-r from-[#E8C87A] via-[#C9A65B] to-[#E8C87A] bg-clip-text text-transparent">
-              up to 1000x
+              up to 200x
             </span>{" "}
             leverage.
           </h1>
 
           <p className="mt-6 max-w-lg text-base leading-relaxed text-white/55 sm:text-lg">
-            Live Bybit prices, demo funds, and a liquidation price that moves
-            while you drag the slider. When you want it to count, connect your
-            own exchange account and trade it for real from the same screen.
+            Trade perpetuals on your own exchange account, from a screen built
+            for it. Your funds stay at the exchange, the terminal cannot withdraw
+            them, and the liquidation price moves while you drag the slider.
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
